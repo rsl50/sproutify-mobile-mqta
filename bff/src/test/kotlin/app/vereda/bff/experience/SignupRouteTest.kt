@@ -5,6 +5,9 @@ import app.vereda.bff.module
 import app.vereda.bff.experience.application.ScreenCatalog
 import app.vereda.bff.experience.application.ScreenQueries
 import app.vereda.bff.experience.application.SubmitSignup
+import app.vereda.bff.funding.application.FundOpeningBalance
+import app.vereda.bff.funding.domain.AccountFunding
+import app.vereda.bff.funding.domain.Money
 import app.vereda.bff.issuing.application.IssueCard
 import app.vereda.bff.issuing.domain.CardIssuing
 import app.vereda.bff.issuing.domain.CardLast4
@@ -13,11 +16,12 @@ import app.vereda.bff.issuing.domain.CardToken
 import app.vereda.bff.issuing.domain.IssuedCardDraft
 import app.vereda.bff.issuing.infrastructure.InMemoryIssuedCardRepository
 import app.vereda.bff.onboarding.application.RegisterCardholder
+import app.vereda.bff.onboarding.infrastructure.InMemoryCardholderRepository
+import app.vereda.bff.onboarding.infrastructure.InMemorySessionRepository
 import app.vereda.bff.onboarding.domain.CardholderEnrollment
 import app.vereda.bff.onboarding.domain.Email
 import app.vereda.bff.onboarding.domain.PersonName
 import app.vereda.bff.onboarding.domain.UserToken
-import app.vereda.bff.onboarding.infrastructure.InMemoryCardholderRepository
 import app.vereda.bff.shared.RecordingEventPublisher
 import app.vereda.sdui.ScreenJson
 import io.ktor.client.request.get
@@ -68,8 +72,11 @@ class SignupRouteTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertTrue(body.contains("showScreen"))
-        assertTrue(body.contains("Olá, Ana Lima"))
-        assertTrue(body.contains("Final 4242"))
+        assertTrue(body.contains("Olá, Ana"))
+        assertTrue(body.contains("\"type\":\"card\""))
+        assertTrue(body.contains("4242"))
+        assertTrue(body.contains("USD 100.00"))
+        assertTrue(body.contains("Saldo disponível"))
         assertEquals(listOf("ana@example.com"), enrollment.emails)
         assertTrue(enrollment.payloads.none { it.contains("segredo12") })
     }
@@ -77,13 +84,29 @@ class SignupRouteTest {
     private fun graph(enrollment: CardholderEnrollment = RecordingEnrollment()): BffGraph {
         val catalog = ScreenCatalog()
         val events = RecordingEventPublisher()
-        val register = RegisterCardholder(
-            InMemoryCardholderRepository(),
-            enrollment,
-            events,
+        val cardholders = InMemoryCardholderRepository()
+        val sessions = InMemorySessionRepository()
+        val cards = InMemoryIssuedCardRepository()
+        val funding = FixedFunding()
+        val register = RegisterCardholder(cardholders, enrollment, events)
+        val issueCard = IssueCard(FixedIssuing(), cards, events)
+        return BffGraph(
+            screens = ScreenQueries(catalog, sessions, cardholders, cards, funding),
+            signup = SubmitSignup(
+                register,
+                issueCard,
+                FundOpeningBalance(funding, events),
+                sessions,
+                catalog,
+            ),
+            signIn = app.vereda.bff.experience.application.SubmitSignIn(
+                app.vereda.bff.onboarding.application.SignIn(cardholders, sessions),
+                catalog,
+            ),
+            signOut = app.vereda.bff.experience.application.SubmitSignOut(
+                app.vereda.bff.onboarding.application.SignOut(sessions),
+            ),
         )
-        val issueCard = IssueCard(FixedIssuing(), InMemoryIssuedCardRepository(), events)
-        return BffGraph(ScreenQueries(catalog), SubmitSignup(register, issueCard, catalog))
     }
 
     private class RecordingEnrollment : CardholderEnrollment {
@@ -95,6 +118,12 @@ class SignupRouteTest {
             payloads += "${name.first}|${name.last}|${email.value}"
             return UserToken.of("usr_1")
         }
+    }
+
+    private class FixedFunding : AccountFunding {
+        override suspend fun fund(userToken: UserToken, money: Money) = Unit
+
+        override suspend fun availableBalance(userToken: UserToken): Money = Money.openingBalance
     }
 
     private class FixedIssuing : CardIssuing {

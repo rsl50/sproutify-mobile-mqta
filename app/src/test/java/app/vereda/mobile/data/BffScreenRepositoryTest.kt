@@ -30,7 +30,7 @@ class BffScreenRepositoryTest {
             .addConverterFactory(ScreenJson.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(BffApi::class.java)
-        repository = BffScreenRepository(api, transportMessage = "offline")
+        repository = BffScreenRepository(api, MemorySessionTokenStore(), transportMessage = "offline")
     }
 
     @After
@@ -74,5 +74,39 @@ class BffScreenRepositoryTest {
             assertEquals("Falha interna.", error.message)
         }
         assertTrue(server.requestCount == 1)
+    }
+
+    @Test
+    fun sendsTheSessionTokenWithoutStoringCardData() = runBlocking {
+        val sessions = MemorySessionTokenStore()
+        val api = Retrofit.Builder()
+            .baseUrl(server.url("/"))
+            .client(
+                OkHttpClient.Builder().addInterceptor(SessionHeaderInterceptor(sessions)).build(),
+            )
+            .addConverterFactory(ScreenJson.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(BffApi::class.java)
+        val withSession = BffScreenRepository(api, sessions, "offline")
+        withSession.saveSession("session-1")
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"schemaVersion":1,"id":"home","title":"Início","components":[]}"""),
+        )
+        withSession.load("home")
+        assertEquals("session-1", server.takeRequest().getHeader("X-Session-Token"))
+    }
+}
+
+private class MemorySessionTokenStore : SessionTokenStore {
+    private var token: String? = null
+
+    override suspend fun hydrate() = Unit
+
+    override fun peek(): String? = token
+
+    override suspend fun update(token: String?) {
+        this.token = token
     }
 }

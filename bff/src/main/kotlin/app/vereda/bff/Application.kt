@@ -1,9 +1,12 @@
 package app.vereda.bff
 
 import app.vereda.bff.config.MarqetaSettingsLoader
+import app.vereda.bff.experience.application.SessionRequired
 import app.vereda.bff.experience.application.UnknownScreen
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
 import app.vereda.sdui.ActionRequest
+import app.vereda.sdui.ActionResponse
+import app.vereda.sdui.ClientEffect
 import app.vereda.sdui.ErrorBody
 import app.vereda.sdui.ScreenJson
 import io.ktor.http.HttpStatusCode
@@ -14,6 +17,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.header
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
@@ -37,6 +41,17 @@ fun Application.module(graph: BffGraph) {
         json(ScreenJson)
     }
     install(StatusPages) {
+        exception<SessionRequired> { call, _ ->
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                ActionResponse(
+                    effects = listOf(
+                        ClientEffect(type = "clearSession"),
+                        ClientEffect(type = "navigate", screenId = "signup"),
+                    ),
+                ),
+            )
+        }
         exception<UnknownScreen> { call, _ ->
             call.respond(HttpStatusCode.NotFound, ErrorBody("Tela desconhecida."))
         }
@@ -50,11 +65,23 @@ fun Application.module(graph: BffGraph) {
             call.respond(HealthResponse(status = "ok", service = serviceName()))
         }
         get("/screens/{id}") {
-            call.respond(graph.screens.get(call.parameters["id"].orEmpty()))
+            call.respond(
+                graph.screens.get(
+                    screenId = call.parameters["id"].orEmpty(),
+                    sessionToken = call.request.header("X-Session-Token"),
+                ),
+            )
         }
         post("/actions/signup") {
             val body = call.receive<ActionRequest>()
             call.respond(graph.signup.execute(body.fields))
+        }
+        post("/actions/signin") {
+            val body = call.receive<ActionRequest>()
+            call.respond(graph.signIn.execute(body.fields))
+        }
+        post("/actions/signout") {
+            call.respond(graph.signOut.execute(call.request.header("X-Session-Token")))
         }
     }
 }

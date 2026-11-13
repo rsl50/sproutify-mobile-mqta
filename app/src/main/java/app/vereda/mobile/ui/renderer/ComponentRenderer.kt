@@ -1,9 +1,17 @@
 package app.vereda.mobile.ui.renderer
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -20,7 +28,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import app.vereda.mobile.ui.screen.ScreenUiEvent
 import app.vereda.mobile.ui.screen.ScreenUiState
+import androidx.compose.ui.Alignment
 import app.vereda.sdui.ButtonComponent
+import app.vereda.sdui.CardComponent
 import app.vereda.sdui.Component
 import app.vereda.sdui.ListComponent
 import app.vereda.sdui.SpacerComponent
@@ -113,6 +123,7 @@ fun RenderComponent(
                 }
             }
         }
+        is CardComponent -> PaymentCardFace(component)
         is SpacerComponent -> Spacer(Modifier.height(spacerHeight(component.size)))
         is ListComponent -> ComponentList(component.children, state, onEvent)
         is UnknownComponent -> Text(
@@ -123,6 +134,47 @@ fun RenderComponent(
         )
     }
 }
+
+@Composable
+fun PaymentCardFace(card: CardComponent, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(CARD_ASPECT_RATIO)
+            .testTag(card.id)
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFF1B3A4B), Color(0xFF0E6B5C)),
+                ),
+            )
+            .padding(20.dp),
+    ) {
+        Column(Modifier.align(Alignment.TopStart)) {
+            Text(card.balanceLabel, color = Color(0xFFD5E4EA))
+            Text(
+                card.balanceText,
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White,
+                modifier = Modifier.testTag("${card.id}-balance"),
+            )
+        }
+        Text(
+            text = "•••• •••• •••• ${card.lastFour}",
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .testTag("${card.id}-last4"),
+        )
+        Text(
+            text = card.holderName,
+            color = Color.White,
+            modifier = Modifier.align(Alignment.BottomEnd),
+        )
+    }
+}
+
+internal const val CARD_ASPECT_RATIO = 1.586f
 
 private fun keyboardType(keyboard: String): KeyboardType = when (keyboard) {
     "email" -> KeyboardType.Email

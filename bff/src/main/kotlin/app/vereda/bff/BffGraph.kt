@@ -2,13 +2,20 @@ package app.vereda.bff
 
 import app.vereda.bff.experience.application.ScreenCatalog
 import app.vereda.bff.experience.application.ScreenQueries
+import app.vereda.bff.experience.application.SubmitSignIn
+import app.vereda.bff.experience.application.SubmitSignOut
 import app.vereda.bff.experience.application.SubmitSignup
+import app.vereda.bff.funding.application.FundOpeningBalance
+import app.vereda.bff.funding.infrastructure.MarqetaAccountFunding
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
 import app.vereda.bff.issuing.application.IssueCard
 import app.vereda.bff.issuing.infrastructure.InMemoryIssuedCardRepository
 import app.vereda.bff.issuing.infrastructure.MarqetaCardIssuing
 import app.vereda.bff.onboarding.application.RegisterCardholder
+import app.vereda.bff.onboarding.application.SignIn
+import app.vereda.bff.onboarding.application.SignOut
 import app.vereda.bff.onboarding.infrastructure.InMemoryCardholderRepository
+import app.vereda.bff.onboarding.infrastructure.InMemorySessionRepository
 import app.vereda.bff.onboarding.infrastructure.MarqetaCardholderEnrollment
 import app.vereda.bff.shared.DomainEvent
 import app.vereda.bff.shared.DomainEventPublisher
@@ -17,6 +24,8 @@ import org.slf4j.LoggerFactory
 class BffGraph(
     val screens: ScreenQueries,
     val signup: SubmitSignup,
+    val signIn: SubmitSignIn,
+    val signOut: SubmitSignOut,
 ) {
     companion object {
         fun create(
@@ -24,20 +33,31 @@ class BffGraph(
             events: DomainEventPublisher = LoggingEventPublisher(),
         ): BffGraph {
             val cardholders = InMemoryCardholderRepository()
+            val sessions = InMemorySessionRepository()
+            val cards = InMemoryIssuedCardRepository()
+            val funding = MarqetaAccountFunding(api)
+            val catalog = ScreenCatalog()
             val register = RegisterCardholder(
                 cardholders = cardholders,
                 enrollment = MarqetaCardholderEnrollment(api),
                 events = events,
             )
-            val catalog = ScreenCatalog()
             val issueCard = IssueCard(
                 issuing = MarqetaCardIssuing(api),
-                cards = InMemoryIssuedCardRepository(),
+                cards = cards,
                 events = events,
             )
             return BffGraph(
-                screens = ScreenQueries(catalog),
-                signup = SubmitSignup(register, issueCard, catalog),
+                screens = ScreenQueries(catalog, sessions, cardholders, cards, funding),
+                signup = SubmitSignup(
+                    register = register,
+                    issueCard = issueCard,
+                    fundOpeningBalance = FundOpeningBalance(funding, events),
+                    sessions = sessions,
+                    catalog = catalog,
+                ),
+                signIn = SubmitSignIn(SignIn(cardholders, sessions), catalog),
+                signOut = SubmitSignOut(SignOut(sessions)),
             )
         }
     }

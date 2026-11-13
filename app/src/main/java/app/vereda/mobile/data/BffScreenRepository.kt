@@ -14,11 +14,16 @@ import java.io.IOException
 
 class BffScreenRepository(
     private val api: BffApi,
+    private val sessions: SessionTokenStore,
     private val transportMessage: String,
 ) : ScreenRepository {
-    override suspend fun prepare() = Unit
+    override suspend fun prepare() {
+        sessions.hydrate()
+    }
 
-    override suspend fun saveSession(token: String?) = Unit
+    override suspend fun saveSession(token: String?) {
+        sessions.update(token)
+    }
 
     override suspend fun load(screenId: String): LoadResult = try {
         val screen = api.screen(screenId)
