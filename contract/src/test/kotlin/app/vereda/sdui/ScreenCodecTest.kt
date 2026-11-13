@@ -1,6 +1,5 @@
 package app.vereda.sdui
 
-import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -67,5 +66,26 @@ class ScreenCodecTest {
         assertEquals("Informe o e-mail", FieldRules.errorFor(field, " "))
         assertEquals("E-mail inválido", FieldRules.errorFor(field, "ana"))
         assertEquals(null, FieldRules.errorFor(field, "ana@example.com"))
+    }
+
+    @Test
+    fun cardComponentRoundTripsBalanceAndLast4() {
+        val screen = Screen(
+            id = "home",
+            components = listOf(
+                CardComponent(
+                    id = "payment-card",
+                    holderName = "Ana Lima",
+                    lastFour = "4242",
+                    balanceLabel = "Saldo disponível",
+                    balanceText = "USD 100.00",
+                ),
+            ),
+        )
+        val decoded = ScreenJson.decodeFromString(
+            Screen.serializer(),
+            ScreenJson.encodeToString(Screen.serializer(), screen),
+        )
+        assertEquals(screen, decoded)
     }
 }
