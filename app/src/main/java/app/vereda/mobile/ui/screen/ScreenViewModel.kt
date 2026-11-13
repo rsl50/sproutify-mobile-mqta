@@ -43,6 +43,7 @@ class ScreenViewModel @Inject constructor(
                 }
             }
             ScreenUiEvent.Retry -> load(currentScreenId)
+            ScreenUiEvent.Refresh -> refresh()
             is ScreenUiEvent.OpenScreen -> load(event.screenId)
             is ScreenUiEvent.FieldChanged -> updateField(event.id, event.value)
             is ScreenUiEvent.ActionRequested -> onAction(event.componentId)
@@ -85,6 +86,28 @@ class ScreenViewModel @Inject constructor(
             } catch (error: Exception) {
                 _state.value = content.copy(submitting = false)
                 _effects.send(ScreenUiEffect.Snackbar(error.message.orEmpty()))
+            }
+        }
+    }
+
+    private fun refresh() {
+        val current = _state.value as? ScreenUiState.Content
+        viewModelScope.launch {
+            if (current != null) {
+                _state.value = current.copy(refreshing = true, submitting = false)
+            }
+            try {
+                when (val result = repository.load(currentScreenId)) {
+                    is LoadResult.Ready -> show(result.screen)
+                    is LoadResult.Redirect -> apply(result.response, fallback = current)
+                }
+            } catch (error: Exception) {
+                if (current != null) {
+                    _state.value = current.copy(refreshing = false)
+                    _effects.send(ScreenUiEffect.Snackbar(error.message.orEmpty()))
+                } else {
+                    _state.value = ScreenUiState.Failed(error.message.orEmpty())
+                }
             }
         }
     }
@@ -136,6 +159,7 @@ class ScreenViewModel @Inject constructor(
             fields = screen.initialFields(),
             fieldErrors = emptyMap(),
             submitting = false,
+            refreshing = false,
         )
     }
 }

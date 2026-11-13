@@ -3,6 +3,7 @@ package app.vereda.bff.experience.application
 import app.vereda.bff.funding.application.FundOpeningBalance
 import app.vereda.bff.funding.domain.AccountFunding
 import app.vereda.bff.infrastructure.marqeta.MarqetaCallFailed
+import app.vereda.bff.infrastructure.marqeta.screenMessage
 import app.vereda.bff.issuing.application.IssueCard
 import app.vereda.bff.issuing.domain.IssuedCardRepository
 import app.vereda.bff.issuing.domain.NoActiveCardProduct
@@ -103,9 +104,9 @@ class SubmitSignup(
             ActionResponse(
                 effects = listOf(ClientEffect(type = "snackbar", message = "Não foi possível emitir o cartão.")),
             )
-        } catch (_: MarqetaCallFailed) {
+        } catch (error: MarqetaCallFailed) {
             ActionResponse(
-                effects = listOf(ClientEffect(type = "snackbar", message = "Não foi possível criar a conta.")),
+                effects = listOf(ClientEffect(type = "snackbar", message = error.screenMessage())),
             )
         }
     }

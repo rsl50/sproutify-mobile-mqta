@@ -119,6 +119,20 @@ class ScreenViewModelTest {
     }
 
     @Test
+    fun refreshReloadsTheCurrentScreen() = runBlocking {
+        var calls = 0
+        coEvery { repository.load(any()) } answers {
+            calls += 1
+            LoadResult.Ready(if (calls == 1) signup else signup.copy(title = "Atualizado"))
+        }
+        val viewModel = ScreenViewModel(repository)
+        viewModel.onEvent(ScreenUiEvent.Refresh)
+        val state = viewModel.state.value as ScreenUiState.Content
+        assertEquals("Atualizado", state.screen.title)
+        assertEquals(false, state.refreshing)
+    }
+
+    @Test
     fun showsTheFailureMessageFromTheRepository() = runBlocking {
         coEvery { repository.load("home") } throws IllegalStateException("schemaVersion=2")
         val viewModel = ScreenViewModel(repository)

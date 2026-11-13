@@ -1,6 +1,7 @@
 package app.vereda.bff.experience.application
 
 import app.vereda.bff.infrastructure.marqeta.MarqetaCallFailed
+import app.vereda.bff.infrastructure.marqeta.screenMessage
 import app.vereda.bff.issuing.domain.IssuedCardRepository
 import app.vereda.bff.onboarding.domain.CardholderRepository
 import app.vereda.bff.onboarding.domain.SessionRepository
@@ -43,9 +44,9 @@ class SubmitSimulatePurchase(
             )
         } catch (_: IllegalArgumentException) {
             ActionResponse(fieldErrors = mapOf("amount" to "Informe um valor USD maior que zero."))
-        } catch (_: MarqetaCallFailed) {
+        } catch (error: MarqetaCallFailed) {
             ActionResponse(
-                effects = listOf(ClientEffect(type = "snackbar", message = "Não foi possível simular a compra.")),
+                effects = listOf(ClientEffect(type = "snackbar", message = error.screenMessage())),
             )
         }
     }

@@ -12,6 +12,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class MarqetaCoreApiTest {
     private lateinit var server: MockWebServer
@@ -142,7 +143,31 @@ class MarqetaCoreApiTest {
             runBlocking { api.createUser("Ana", "Lima", "ana@example.com") }
         }
         assertEquals(400, error.statusCode)
-        assertFalse(error.message!!.contains("secret-body-should-not-leak"))
+        assertEquals("A Marqeta recusou o pedido.", error.screenMessage())
+        assertFalse(error.screenMessage().contains("secret-body-should-not-leak"))
+    }
+
+    @Test
+    fun timeoutIsAScreenMessage() {
+        val slow = MockWebServer()
+        slow.enqueue(MockResponse().setBodyDelay(3, TimeUnit.SECONDS).setBody("secret-timeout-body"))
+        slow.start()
+        val client = MarqetaCoreApi.create(
+            MarqetaSettings(slow.url("/").toString().trimEnd('/'), "app-token", "admin-token"),
+            requestTimeoutMs = 300,
+            connectTimeoutMs = 300,
+        )
+        try {
+            val error = assertThrows(MarqetaCallFailed::class.java) {
+                runBlocking { client.createUser("Ana", "Lima", "ana@example.com") }
+            }
+            assertEquals(408, error.statusCode)
+            assertEquals("A Marqeta não respondeu a tempo.", error.screenMessage())
+            assertFalse(error.screenMessage().contains("secret-timeout-body"))
+        } finally {
+            client.close()
+            slow.shutdown()
+        }
     }
 
     private fun json(body: String, code: Int = 200): MockResponse =
