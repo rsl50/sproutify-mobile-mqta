@@ -3,6 +3,7 @@ package app.vereda.bff.experience.application
 import app.vereda.bff.funding.domain.Money
 import app.vereda.bff.issuing.domain.IssuedCard
 import app.vereda.bff.onboarding.domain.Cardholder
+import app.vereda.bff.transactions.domain.CardTransaction
 import app.vereda.sdui.ButtonComponent
 import app.vereda.sdui.CardComponent
 import app.vereda.sdui.ComponentAction
@@ -123,6 +124,17 @@ class ScreenCatalog {
                 balanceText = balance.format(),
             ),
             ButtonComponent(
+                id = "transactions",
+                label = "Transações",
+                style = "text",
+                action = ComponentAction(type = "navigate", screenId = "transactions"),
+            ),
+            ButtonComponent(
+                id = "simulate",
+                label = "Simular compra",
+                action = ComponentAction(type = "navigate", screenId = "simulate-purchase"),
+            ),
+            ButtonComponent(
                 id = "refresh",
                 label = "Atualizar saldo",
                 style = "text",
@@ -133,6 +145,69 @@ class ScreenCatalog {
                 label = "Sair",
                 style = "text",
                 action = ComponentAction(type = "signOut", endpoint = "actions/signout"),
+            ),
+        ),
+    )
+
+    fun transactions(items: List<CardTransaction>): Screen {
+        val rows = if (items.isEmpty()) {
+            listOf(TextComponent(id = "empty", value = "Nenhuma transação ainda.", style = "caption"))
+        } else {
+            items.map { item ->
+                TextComponent(
+                    id = item.token,
+                    value = "${item.merchant.value} · ${item.amount.format()} · ${item.state}",
+                )
+            }
+        }
+        return Screen(
+            id = "transactions",
+            title = "Transações",
+            components = rows + listOf(
+                ButtonComponent(
+                    id = "refresh",
+                    label = "Atualizar",
+                    style = "text",
+                    action = ComponentAction(type = "refresh", screenId = "transactions"),
+                ),
+                ButtonComponent(
+                    id = "back",
+                    label = "Voltar",
+                    style = "text",
+                    action = ComponentAction(type = "navigate", screenId = "home"),
+                ),
+            ),
+        )
+    }
+
+    fun simulatePurchase(): Screen = Screen(
+        id = "simulate-purchase",
+        title = "Simular compra",
+        components = listOf(
+            TextComponent(
+                id = "hint",
+                value = "Simula uma autorização no sandbox. O saldo da home é lido de novo depois.",
+                style = "caption",
+            ),
+            TextFieldComponent(
+                id = "amount",
+                label = "Valor em USD",
+                keyboard = "number",
+                validations = listOf(
+                    FieldRule("required", "Informe o valor"),
+                    FieldRule("money", "Use um valor maior que zero, com até 2 casas."),
+                ),
+            ),
+            TextFieldComponent(
+                id = "merchant",
+                label = "Estabelecimento",
+                value = "Padaria da Esquina",
+                validations = listOf(FieldRule("required", "Informe o estabelecimento")),
+            ),
+            ButtonComponent(
+                id = "submit",
+                label = "Simular compra",
+                action = ComponentAction(type = "submit", endpoint = "actions/simulate-purchase"),
             ),
         ),
     )

@@ -9,15 +9,18 @@ O código, o nome e a arte são próprios. O demo web não tem arquivo `LICENSE`
 1. O app pede `GET /screens/bootstrap`. Sem sessão, o BFF devolve a tela de cadastro.
 2. No cadastro, o BFF cria o cardholder (`POST /users`), emite o cartão no primeiro card product ativo (`GET /cardproducts`, `POST /cards`) e faz um GPA order de USD 100 com `funding_source_token` `sandbox_program_funding`.
 3. A home chega como JSON. O componente `card` traz saldo (`gpa.available_balance`) e os últimos 4 dígitos. O app não guarda PAN.
-4. Sair encerra a sessão. Entrar de novo confere e-mail e senha só no BFF.
+4. "Transações" pede `GET /transactions?user_token=...` e a tela lista comércio, valor e estado.
+5. "Simular compra" manda `POST /simulations/cardtransactions/authorization` (Simulations 2.0, o endpoint atual da doc para sandbox público e privado) e volta para a home, que relê o saldo. O use case publica `PurchaseSimulated`.
+6. Puxar a tela para baixo repete o `GET` da tela atual. Os botões "Atualizar" fazem o mesmo via ação `refresh`.
+7. Sair encerra a sessão. Entrar de novo confere e-mail e senha só no BFF.
 
-A senha não existe na Marqeta nesse fluxo (o sign-in do demo web também é um stub). Ela fica hasheada no agregado Cardholder, em memória no BFF. Reiniciar o BFF esquece contas e sessões locais; os usuários criados no sandbox continuam lá, mas este app não consegue entrar de novo neles.
+A senha não existe na Marqeta nesse fluxo (o sign-in do demo web também é um stub). Ela fica em bcrypt (custo 10) no agregado Cardholder. Cardholder, sessão e cartão (token e last4, nunca PAN) vão para um H2 em `bff/data/vereda` (gitignored; `VEREDA_DB_PATH` muda o arquivo). Reiniciar o BFF não apaga a conta local.
 
 ## Arquitetura
 
 O app é server-driven: a única rota que ele conhece é `bootstrap`. Textos, validação e navegação vêm do schema. O ViewModel é event-driven (`UiState` em `StateFlow`, `UiEvent` num único `onEvent`, `UiEffect` num `Channel` para snackbar e navegação).
 
-O domínio de negócio fica no BFF, em quatro bounded contexts. O módulo `contract` é a linguagem do contexto de Experience e, no Android, o domínio pequeno da UI (Screen, Component, Action), separado de Compose e de Retrofit.
+O domínio de negócio fica no BFF, em cinco bounded contexts. O módulo `contract` é a linguagem do contexto de Experience e, no Android, o domínio pequeno da UI (Screen, Component, Action), separado de Compose e de Retrofit.
 
 ```mermaid
 flowchart LR
@@ -32,23 +35,30 @@ flowchart LR
     ONB[Onboarding / Cardholder]
     ISS[Card Issuing]
     FUN[Funding / Balance]
+    TX[Transactions]
     EXP --> ONB
     EXP --> ISS
     EXP --> FUN
+    EXP --> TX
   end
   MQ[Marqeta Core API]
+  H2[(H2 em arquivo)]
   VM -->|JSON| EXP
+  ONB --> H2
+  ISS --> H2
   ONB -->|anticorruption| MQ
   ISS -->|anticorruption| MQ
   FUN -->|anticorruption| MQ
+  TX -->|anticorruption| MQ
 ```
 
 | Contexto | Linguagem | Eventos |
 | --- | --- | --- |
-| Onboarding / Cardholder | Cardholder, Email, PersonName, Password, UserToken, SessionToken | — |
+| Onboarding / Cardholder | Cardholder, Email, PersonName, Password (bcrypt), UserToken, SessionToken | CardholderRegistered |
 | Card Issuing | IssuedCard, CardLast4, CardToken, CardProductToken | CardIssued |
 | Funding / Balance | Money, Currency, saldo disponível | AccountFunded |
-| Experience / SDUI | Screen, Component, Action, Effect | CardholderRegistered na abertura da conta |
+| Transactions | CardTransaction, MerchantName | PurchaseSimulated |
+| Experience / SDUI | Screen, Component, Action, Effect | monta as telas a partir dos outros contextos |
 
 Cada contexto tem domínio (entidades, value objects, portas), aplicação (use cases) e infraestrutura. Os DTOs da Marqeta não saem de `infrastructure/marqeta`; os adapters traduzem para o modelo de domínio. O publisher de eventos é em processo, só para o demo.
 
@@ -57,7 +67,7 @@ flowchart TB
   HTTP[Rotas Ktor] --> APP[Application]
   APP --> DOM[Domain]
   APP --> PORTS[Portas]
-  PORTS --> ADAPT[Adapters Marqeta e repositórios em memória]
+  PORTS --> ADAPT[Adapters Marqeta e repositórios H2]
 ```
 
 ## Schema das telas (versão 1)
@@ -86,7 +96,11 @@ Componentes: `text`, `textField`, `button`, `card`, `list`, `spacer`. Tipo desco
 
 Ações do botão: `submit` (`endpoint` relativo, ex. `actions/signup`), `navigate` (`screenId`), `refresh` (`screenId`), `signOut` (`endpoint`). Ação desconhecida é ignorada.
 
-Regras de campo: `required`, `email`, `minLength` (`min` + `message`). Regra desconhecida é ignorada no cliente; o BFF valida de novo.
+Regras de campo: `required`, `email`, `minLength` (`min` + `message`), `money` (valor positivo com até 2 casas). Regra desconhecida é ignorada no cliente; o BFF valida de novo.
+
+Telas além do cadastro: `signin`, `home`, `transactions`, `simulate-purchase`. O app não conhece esses ids; eles vêm nas ações. Puxar para baixo dispara o mesmo reload que a ação `refresh`.
+
+Erros da Marqeta viram snackbar no BFF (pedido recusado, credencial, não encontrado, timeout, indisponível). O corpo da resposta não volta para o app. O cliente HTTP espera no máximo 5s para conectar e 15s pela resposta.
 
 `POST` de uma ação recebe `{ "fields": { "email": "..." } }` e responde:
 
@@ -146,12 +160,15 @@ Testes, sem sandbox:
 ./gradlew :app:testDebugUnitTest :bff:test :contract:test
 ```
 
-O cliente Marqeta e o cliente do app são exercitados com MockWebServer. Os use cases usam portas falsas. Não há chamada real ao sandbox neste repositório.
+O cliente Marqeta e o cliente do app são exercitados com MockWebServer. `AppAgainstBffTest` sobe o BFF de verdade, aponta a Core API para um MockWebServer e percorre cadastro, lista e compra simulada com o repositório HTTP do app. Roda no `testDebugUnitTest`, sem emulador. Não há `androidTest` instrumentado: o CI não tem dispositivo, e esse teste JVM cobre o mesmo contrato HTTP.
+
+Não há chamada real ao sandbox neste repositório.
 
 ## Limitações
 
 - O BFF guarda as chaves de admin e não autentica o chamador além do token de sessão opaco. Deixe-o só na máquina local.
-- Contas, sessões e o hash da senha morrem quando o processo do BFF termina.
+- A doc de Simulations 2.0 descreve o endpoint de autorização para o sandbox público e o privado. Isso não foi executado contra um sandbox real. Se o programa recusar a simulação, a home mostra a mensagem mapeada do status HTTP.
+- O arquivo H2 fica na máquina que roda o BFF. Apagá-lo esquece a conta local; os usuários no sandbox continuam lá.
 - O GPA order fixo de USD 100 usa o funding source `sandbox_program_funding` do public sandbox.
 - O card product é o primeiro ativo devolvido por `GET /cardproducts`, não um token fixo.
 - UX Toolkit da Marqeta não se aplica aqui.

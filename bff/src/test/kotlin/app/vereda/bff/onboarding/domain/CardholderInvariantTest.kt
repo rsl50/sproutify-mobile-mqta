@@ -24,8 +24,10 @@ class CardholderInvariantTest {
     fun passwordIsHashedAndCheckedWithoutKeepingThePlainValue() {
         assertThrows(IllegalArgumentException::class.java) { Password.create("curta") }
         val password = Password.create("segredo12")
-        assertFalse(password.hash == "segredo12")
+        assertTrue(password.hash.startsWith("\$2"))
+        assertFalse(password.hash.contains("segredo12"))
         assertTrue(password.matches("segredo12"))
         assertFalse(password.matches("segredo13"))
+        assertTrue(Password.fromStored(password.hash).matches("segredo12"))
     }
 }

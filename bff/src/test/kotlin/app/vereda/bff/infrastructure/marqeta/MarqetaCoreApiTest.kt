@@ -12,6 +12,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class MarqetaCoreApiTest {
     private lateinit var server: MockWebServer
@@ -95,6 +96,42 @@ class MarqetaCoreApiTest {
     }
 
     @Test
+    fun listsTransactionsAndSimulatesAnAuthorization() = runBlocking {
+        server.enqueue(
+            json(
+                """
+                {"data":[{"token":"tx_1","amount":12.5,"state":"PENDING","currency_code":"USD",
+                  "card_acceptor":{"name":"Padaria da Esquina"}}]}
+                """.trimIndent(),
+            ),
+        )
+        server.enqueue(
+            json(
+                """
+                {"transaction":{"token":"tx_2","amount":8.0,"state":"PENDING","currency_code":"USD",
+                  "card_acceptor":{"name":"Cafe"}}}
+                """.trimIndent(),
+                201,
+            ),
+        )
+
+        val listed = api.listTransactions("usr_1")
+        val simulated = api.simulateAuthorization("card_1", "8.00", "Cafe")
+
+        assertEquals("Padaria da Esquina", listed.single().merchant)
+        val listRequest = server.takeRequest()
+        assertTrue(listRequest.path!!.startsWith("/transactions?"))
+        assertTrue(listRequest.path!!.contains("user_token=usr_1"))
+        val simulation = server.takeRequest()
+        assertEquals("/simulations/cardtransactions/authorization", simulation.path)
+        val body = simulation.body.readUtf8()
+        assertTrue(body.contains("\"card_token\":\"card_1\""))
+        assertTrue(body.contains("\"amount\":\"8.00\""))
+        assertTrue(body.contains("\"name\":\"Cafe\""))
+        assertEquals("tx_2", simulated.token)
+    }
+
+    @Test
     fun failedCallHidesResponseBody() {
         server.enqueue(
             MockResponse()
@@ -106,7 +143,31 @@ class MarqetaCoreApiTest {
             runBlocking { api.createUser("Ana", "Lima", "ana@example.com") }
         }
         assertEquals(400, error.statusCode)
-        assertFalse(error.message!!.contains("secret-body-should-not-leak"))
+        assertEquals("A Marqeta recusou o pedido.", error.screenMessage())
+        assertFalse(error.screenMessage().contains("secret-body-should-not-leak"))
+    }
+
+    @Test
+    fun timeoutIsAScreenMessage() {
+        val slow = MockWebServer()
+        slow.enqueue(MockResponse().setBodyDelay(3, TimeUnit.SECONDS).setBody("secret-timeout-body"))
+        slow.start()
+        val client = MarqetaCoreApi.create(
+            MarqetaSettings(slow.url("/").toString().trimEnd('/'), "app-token", "admin-token"),
+            requestTimeoutMs = 300,
+            connectTimeoutMs = 300,
+        )
+        try {
+            val error = assertThrows(MarqetaCallFailed::class.java) {
+                runBlocking { client.createUser("Ana", "Lima", "ana@example.com") }
+            }
+            assertEquals(408, error.statusCode)
+            assertEquals("A Marqeta não respondeu a tempo.", error.screenMessage())
+            assertFalse(error.screenMessage().contains("secret-timeout-body"))
+        } finally {
+            client.close()
+            slow.shutdown()
+        }
     }
 
     private fun json(body: String, code: Int = 200): MockResponse =

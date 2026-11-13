@@ -4,6 +4,8 @@
 local.properties
 bff/local.properties
 bff/data/
+*.mv.db
+*.trace.db
 .env
 **/.env
 *.iml

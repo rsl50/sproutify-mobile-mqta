@@ -1,5 +1,7 @@
 package app.vereda.sdui
 
+import java.math.BigDecimal
+
 object FieldRules {
     fun errors(screen: Screen, fields: Map<String, String>): Map<String, String> {
         val found = linkedMapOf<String, String>()
@@ -25,6 +27,7 @@ object FieldRules {
                 "required" -> value.isBlank()
                 "email" -> !isEmail(value)
                 "minLength" -> value.length < (rule.min ?: 0)
+                "money" -> !isPositiveMoney(value)
                 else -> false
             }
             if (failed) return rule.message
@@ -39,5 +42,10 @@ object FieldRules {
         val domain = trimmed.substring(at + 1)
         val dot = domain.indexOf('.')
         return dot > 0 && dot < domain.lastIndex
+    }
+
+    private fun isPositiveMoney(value: String): Boolean {
+        val amount = value.trim().toBigDecimalOrNull() ?: return false
+        return amount.scale() <= 2 && amount > BigDecimal.ZERO
     }
 }
