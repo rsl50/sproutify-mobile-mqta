@@ -35,6 +35,7 @@ object ComponentSerializer : KSerializer<Component> {
             is ButtonComponent -> output.json.encodeToJsonElement(ButtonComponent.serializer(), value)
             is SpacerComponent -> output.json.encodeToJsonElement(SpacerComponent.serializer(), value)
             is ListComponent -> output.json.encodeToJsonElement(ListComponent.serializer(), value)
+            is CardComponent -> output.json.encodeToJsonElement(CardComponent.serializer(), value)
             is UnknownComponent -> buildJsonObject { put("id", value.id) }
         }
         val typeName = when (value) {
@@ -43,6 +44,7 @@ object ComponentSerializer : KSerializer<Component> {
             is ButtonComponent -> "button"
             is SpacerComponent -> "spacer"
             is ListComponent -> "list"
+            is CardComponent -> "card"
             is UnknownComponent -> value.typeName
         }
         output.encodeJsonElement(JsonObject(payload.jsonObject + ("type" to JsonPrimitive(typeName))))
@@ -55,6 +57,7 @@ object ComponentSerializer : KSerializer<Component> {
             "button" -> json.decodeFromJsonElement(ButtonComponent.serializer(), element)
             "spacer" -> json.decodeFromJsonElement(SpacerComponent.serializer(), element)
             "list" -> json.decodeFromJsonElement(ListComponent.serializer(), element)
+            "card" -> json.decodeFromJsonElement(CardComponent.serializer(), element)
             else -> UnknownComponent(
                 id = element["id"]?.jsonPrimitive?.contentOrNull ?: "",
                 typeName = type,

@@ -77,6 +77,15 @@ data class ButtonComponent(
 ) : Component
 
 @Serializable
+data class CardComponent(
+    override val id: String,
+    val holderName: String,
+    val lastFour: String,
+    val balanceLabel: String,
+    val balanceText: String,
+) : Component
+
+@Serializable
 data class SpacerComponent(
     override val id: String,
     val size: String = "medium",
