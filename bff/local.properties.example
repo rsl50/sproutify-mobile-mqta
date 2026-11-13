@@ -1,0 +1,5 @@
+# Copy to bff/local.properties (gitignored) or export the same names in the environment.
+# Environment variables win over this file. Do not put real tokens in the example.
+MARQETA_APPLICATION_TOKEN=replace-with-application-token
+MARQETA_ADMIN_ACCESS_TOKEN=replace-with-admin-access-token
+MARQETA_BASE_URL=https://sandbox-api.marqeta.com/v3
