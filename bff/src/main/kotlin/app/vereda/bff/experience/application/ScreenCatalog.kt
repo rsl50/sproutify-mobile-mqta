@@ -1,5 +1,6 @@
 package app.vereda.bff.experience.application
 
+import app.vereda.bff.issuing.domain.IssuedCard
 import app.vereda.bff.onboarding.domain.Cardholder
 import app.vereda.sdui.ButtonComponent
 import app.vereda.sdui.ComponentAction
@@ -55,7 +56,7 @@ class ScreenCatalog {
         ),
     )
 
-    fun registered(cardholder: Cardholder): Screen = Screen(
+    fun registered(cardholder: Cardholder, card: IssuedCard): Screen = Screen(
         id = "registered",
         title = "Conta criada",
         components = listOf(
@@ -64,7 +65,7 @@ class ScreenCatalog {
                 id = "hello",
                 value = "Olá, ${cardholder.name.first} ${cardholder.name.last}",
             ),
-            TextComponent(id = "email", value = cardholder.email.value, style = "caption"),
+            TextComponent(id = "last4", value = "Final ${card.last4.value}", style = "caption"),
         ),
     )
 }

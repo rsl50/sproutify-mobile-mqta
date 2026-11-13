@@ -4,6 +4,9 @@ import app.vereda.bff.experience.application.ScreenCatalog
 import app.vereda.bff.experience.application.ScreenQueries
 import app.vereda.bff.experience.application.SubmitSignup
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
+import app.vereda.bff.issuing.application.IssueCard
+import app.vereda.bff.issuing.infrastructure.InMemoryIssuedCardRepository
+import app.vereda.bff.issuing.infrastructure.MarqetaCardIssuing
 import app.vereda.bff.onboarding.application.RegisterCardholder
 import app.vereda.bff.onboarding.infrastructure.InMemoryCardholderRepository
 import app.vereda.bff.onboarding.infrastructure.MarqetaCardholderEnrollment
@@ -27,9 +30,14 @@ class BffGraph(
                 events = events,
             )
             val catalog = ScreenCatalog()
+            val issueCard = IssueCard(
+                issuing = MarqetaCardIssuing(api),
+                cards = InMemoryIssuedCardRepository(),
+                events = events,
+            )
             return BffGraph(
                 screens = ScreenQueries(catalog),
-                signup = SubmitSignup(register, catalog),
+                signup = SubmitSignup(register, issueCard, catalog),
             )
         }
     }

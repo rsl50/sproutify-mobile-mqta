@@ -5,6 +5,13 @@ import app.vereda.bff.module
 import app.vereda.bff.experience.application.ScreenCatalog
 import app.vereda.bff.experience.application.ScreenQueries
 import app.vereda.bff.experience.application.SubmitSignup
+import app.vereda.bff.issuing.application.IssueCard
+import app.vereda.bff.issuing.domain.CardIssuing
+import app.vereda.bff.issuing.domain.CardLast4
+import app.vereda.bff.issuing.domain.CardProductToken
+import app.vereda.bff.issuing.domain.CardToken
+import app.vereda.bff.issuing.domain.IssuedCardDraft
+import app.vereda.bff.issuing.infrastructure.InMemoryIssuedCardRepository
 import app.vereda.bff.onboarding.application.RegisterCardholder
 import app.vereda.bff.onboarding.domain.CardholderEnrollment
 import app.vereda.bff.onboarding.domain.Email
@@ -62,18 +69,21 @@ class SignupRouteTest {
         val body = response.bodyAsText()
         assertTrue(body.contains("showScreen"))
         assertTrue(body.contains("Olá, Ana Lima"))
+        assertTrue(body.contains("Final 4242"))
         assertEquals(listOf("ana@example.com"), enrollment.emails)
         assertTrue(enrollment.payloads.none { it.contains("segredo12") })
     }
 
     private fun graph(enrollment: CardholderEnrollment = RecordingEnrollment()): BffGraph {
         val catalog = ScreenCatalog()
+        val events = RecordingEventPublisher()
         val register = RegisterCardholder(
             InMemoryCardholderRepository(),
             enrollment,
-            RecordingEventPublisher(),
+            events,
         )
-        return BffGraph(ScreenQueries(catalog), SubmitSignup(register, catalog))
+        val issueCard = IssueCard(FixedIssuing(), InMemoryIssuedCardRepository(), events)
+        return BffGraph(ScreenQueries(catalog), SubmitSignup(register, issueCard, catalog))
     }
 
     private class RecordingEnrollment : CardholderEnrollment {
@@ -85,5 +95,13 @@ class SignupRouteTest {
             payloads += "${name.first}|${name.last}|${email.value}"
             return UserToken.of("usr_1")
         }
+    }
+
+    private class FixedIssuing : CardIssuing {
+        override suspend fun issueFor(userToken: UserToken): IssuedCardDraft = IssuedCardDraft(
+            token = CardToken.of("card_1"),
+            last4 = CardLast4.of("4242"),
+            productToken = CardProductToken.of("cp_on"),
+        )
     }
 }

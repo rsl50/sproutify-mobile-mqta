@@ -1,6 +1,8 @@
 package app.vereda.bff.experience.application
 
 import app.vereda.bff.infrastructure.marqeta.MarqetaCallFailed
+import app.vereda.bff.issuing.application.IssueCard
+import app.vereda.bff.issuing.domain.NoActiveCardProduct
 import app.vereda.bff.onboarding.application.RegisterCardholder
 import app.vereda.bff.onboarding.application.RegisterCardholderCommand
 import app.vereda.bff.onboarding.domain.CardholderAlreadyExists
@@ -19,6 +21,7 @@ class ScreenQueries(
 
 class SubmitSignup(
     private val register: RegisterCardholder,
+    private val issueCard: IssueCard,
     private val catalog: ScreenCatalog,
 ) {
     suspend fun execute(fields: Map<String, String>): ActionResponse {
@@ -36,10 +39,11 @@ class SubmitSignup(
                     password = fields["password"].orEmpty(),
                 ),
             )
+            val card = issueCard.execute(cardholder)
             ActionResponse(
                 effects = listOf(
                     ClientEffect(type = "snackbar", message = "Conta criada."),
-                    ClientEffect(type = "showScreen", screen = catalog.registered(cardholder)),
+                    ClientEffect(type = "showScreen", screen = catalog.registered(cardholder, card)),
                 ),
             )
         } catch (_: CardholderAlreadyExists) {
@@ -47,6 +51,10 @@ class SubmitSignup(
         } catch (_: IllegalArgumentException) {
             ActionResponse(
                 effects = listOf(ClientEffect(type = "snackbar", message = "Revise os dados e tente de novo.")),
+            )
+        } catch (_: NoActiveCardProduct) {
+            ActionResponse(
+                effects = listOf(ClientEffect(type = "snackbar", message = "Não foi possível emitir o cartão.")),
             )
         } catch (_: MarqetaCallFailed) {
             ActionResponse(
