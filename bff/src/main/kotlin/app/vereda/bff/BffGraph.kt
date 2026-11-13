@@ -9,14 +9,15 @@ import app.vereda.bff.funding.application.FundOpeningBalance
 import app.vereda.bff.funding.infrastructure.MarqetaAccountFunding
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
 import app.vereda.bff.issuing.application.IssueCard
-import app.vereda.bff.issuing.infrastructure.InMemoryIssuedCardRepository
+import app.vereda.bff.issuing.infrastructure.JdbcIssuedCardRepository
 import app.vereda.bff.issuing.infrastructure.MarqetaCardIssuing
 import app.vereda.bff.onboarding.application.RegisterCardholder
 import app.vereda.bff.onboarding.application.SignIn
 import app.vereda.bff.onboarding.application.SignOut
-import app.vereda.bff.onboarding.infrastructure.InMemoryCardholderRepository
-import app.vereda.bff.onboarding.infrastructure.InMemorySessionRepository
+import app.vereda.bff.onboarding.infrastructure.JdbcCardholderRepository
+import app.vereda.bff.onboarding.infrastructure.JdbcSessionRepository
 import app.vereda.bff.onboarding.infrastructure.MarqetaCardholderEnrollment
+import app.vereda.bff.shared.persistence.VeredaDatabase
 import app.vereda.bff.shared.DomainEvent
 import app.vereda.bff.shared.DomainEventPublisher
 import org.slf4j.LoggerFactory
@@ -32,9 +33,10 @@ class BffGraph(
             api: MarqetaCoreApi,
             events: DomainEventPublisher = LoggingEventPublisher(),
         ): BffGraph {
-            val cardholders = InMemoryCardholderRepository()
-            val sessions = InMemorySessionRepository()
-            val cards = InMemoryIssuedCardRepository()
+            val database = VeredaDatabase.open()
+            val cardholders = JdbcCardholderRepository(database)
+            val sessions = JdbcSessionRepository(database)
+            val cards = JdbcIssuedCardRepository(database)
             val funding = MarqetaAccountFunding(api)
             val catalog = ScreenCatalog()
             val register = RegisterCardholder(

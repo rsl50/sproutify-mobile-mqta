@@ -1,7 +1,6 @@
 package app.vereda.bff.onboarding.domain
 
-import java.security.MessageDigest
-import java.security.SecureRandom
+import at.favre.lib.crypto.bcrypt.BCrypt
 import java.util.UUID
 
 @JvmInline
@@ -54,32 +53,24 @@ value class UserToken private constructor(val value: String) {
 }
 
 class Password private constructor(
-    val salt: String,
     val hash: String,
 ) {
-    fun matches(plain: String): Boolean {
-        val actual = hash(plain, salt)
-        return MessageDigest.isEqual(
-            actual.toByteArray(Charsets.UTF_8),
-            hash.toByteArray(Charsets.UTF_8),
-        )
-    }
+    fun matches(plain: String): Boolean =
+        BCrypt.verifyer().verify(plain.toCharArray(), hash.toCharArray()).verified
 
     companion object {
         const val MIN_LENGTH = 8
+        const val BCRYPT_COST = 10
 
         fun create(plain: String): Password {
             require(plain.length >= MIN_LENGTH) { "password is too short" }
-            val saltBytes = ByteArray(16).also { SecureRandom().nextBytes(it) }
-            val salt = saltBytes.toHex()
-            return Password(salt, hash(plain, salt))
+            val encoded = BCrypt.withDefaults().hashToString(BCRYPT_COST, plain.toCharArray())
+            return Password(encoded)
         }
 
-        fun fromStored(salt: String, hash: String): Password = Password(salt, hash)
-
-        private fun hash(plain: String, salt: String): String {
-            val digest = MessageDigest.getInstance("SHA-256")
-            return digest.digest("$salt:$plain".toByteArray(Charsets.UTF_8)).toHex()
+        fun fromStored(hash: String): Password {
+            require(hash.startsWith("\$2")) { "password hash is not bcrypt" }
+            return Password(hash)
         }
     }
 }
@@ -121,5 +112,3 @@ interface CardholderRepository {
 interface CardholderEnrollment {
     suspend fun enroll(name: PersonName, email: Email): UserToken
 }
-
-private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
