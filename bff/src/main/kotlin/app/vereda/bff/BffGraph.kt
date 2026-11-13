@@ -37,8 +37,8 @@ class BffGraph(
         fun create(
             api: MarqetaCoreApi,
             events: DomainEventPublisher = LoggingEventPublisher(),
+            database: VeredaDatabase = VeredaDatabase.open(),
         ): BffGraph {
-            val database = VeredaDatabase.open()
             val cardholders = JdbcCardholderRepository(database)
             val sessions = JdbcSessionRepository(database)
             val cards = JdbcIssuedCardRepository(database)
