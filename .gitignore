@@ -1,0 +1,16 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+bff/local.properties
+bff/data/
+.env
+**/.env
+*.iml
+.idea/
+captures/
+*.apk
+*.aab
+*.ap_
+.DS_Store
+*.log
