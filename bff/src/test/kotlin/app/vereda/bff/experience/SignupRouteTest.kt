@@ -106,6 +106,16 @@ class SignupRouteTest {
             signOut = app.vereda.bff.experience.application.SubmitSignOut(
                 app.vereda.bff.onboarding.application.SignOut(sessions),
             ),
+            simulatePurchase = app.vereda.bff.experience.application.SubmitSimulatePurchase(
+                sessions,
+                cardholders,
+                cards,
+                app.vereda.bff.transactions.application.SimulatePurchase(
+                    app.vereda.bff.transactions.application.IdleCardTransactions,
+                    events,
+                ),
+                catalog,
+            ),
         )
     }
 

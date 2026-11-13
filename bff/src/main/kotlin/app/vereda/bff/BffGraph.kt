@@ -18,6 +18,10 @@ import app.vereda.bff.onboarding.infrastructure.JdbcCardholderRepository
 import app.vereda.bff.onboarding.infrastructure.JdbcSessionRepository
 import app.vereda.bff.onboarding.infrastructure.MarqetaCardholderEnrollment
 import app.vereda.bff.shared.persistence.VeredaDatabase
+import app.vereda.bff.transactions.application.ListCardTransactions
+import app.vereda.bff.transactions.application.SimulatePurchase
+import app.vereda.bff.transactions.infrastructure.MarqetaCardTransactions
+import app.vereda.bff.experience.application.SubmitSimulatePurchase
 import app.vereda.bff.shared.DomainEvent
 import app.vereda.bff.shared.DomainEventPublisher
 import org.slf4j.LoggerFactory
@@ -27,6 +31,7 @@ class BffGraph(
     val signup: SubmitSignup,
     val signIn: SubmitSignIn,
     val signOut: SubmitSignOut,
+    val simulatePurchase: SubmitSimulatePurchase,
 ) {
     companion object {
         fun create(
@@ -38,6 +43,7 @@ class BffGraph(
             val sessions = JdbcSessionRepository(database)
             val cards = JdbcIssuedCardRepository(database)
             val funding = MarqetaAccountFunding(api)
+            val cardTransactions = MarqetaCardTransactions(api)
             val catalog = ScreenCatalog()
             val register = RegisterCardholder(
                 cardholders = cardholders,
@@ -50,7 +56,14 @@ class BffGraph(
                 events = events,
             )
             return BffGraph(
-                screens = ScreenQueries(catalog, sessions, cardholders, cards, funding),
+                screens = ScreenQueries(
+                    catalog,
+                    sessions,
+                    cardholders,
+                    cards,
+                    funding,
+                    ListCardTransactions(cardTransactions),
+                ),
                 signup = SubmitSignup(
                     register = register,
                     issueCard = issueCard,
@@ -60,6 +73,13 @@ class BffGraph(
                 ),
                 signIn = SubmitSignIn(SignIn(cardholders, sessions), catalog),
                 signOut = SubmitSignOut(SignOut(sessions)),
+                simulatePurchase = SubmitSimulatePurchase(
+                    sessions = sessions,
+                    cardholders = cardholders,
+                    cards = cards,
+                    simulatePurchase = SimulatePurchase(cardTransactions, events),
+                    catalog = catalog,
+                ),
             )
         }
     }

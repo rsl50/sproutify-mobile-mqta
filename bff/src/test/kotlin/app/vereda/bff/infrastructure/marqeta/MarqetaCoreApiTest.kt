@@ -95,6 +95,42 @@ class MarqetaCoreApiTest {
     }
 
     @Test
+    fun listsTransactionsAndSimulatesAnAuthorization() = runBlocking {
+        server.enqueue(
+            json(
+                """
+                {"data":[{"token":"tx_1","amount":12.5,"state":"PENDING","currency_code":"USD",
+                  "card_acceptor":{"name":"Padaria da Esquina"}}]}
+                """.trimIndent(),
+            ),
+        )
+        server.enqueue(
+            json(
+                """
+                {"transaction":{"token":"tx_2","amount":8.0,"state":"PENDING","currency_code":"USD",
+                  "card_acceptor":{"name":"Cafe"}}}
+                """.trimIndent(),
+                201,
+            ),
+        )
+
+        val listed = api.listTransactions("usr_1")
+        val simulated = api.simulateAuthorization("card_1", "8.00", "Cafe")
+
+        assertEquals("Padaria da Esquina", listed.single().merchant)
+        val listRequest = server.takeRequest()
+        assertTrue(listRequest.path!!.startsWith("/transactions?"))
+        assertTrue(listRequest.path!!.contains("user_token=usr_1"))
+        val simulation = server.takeRequest()
+        assertEquals("/simulations/cardtransactions/authorization", simulation.path)
+        val body = simulation.body.readUtf8()
+        assertTrue(body.contains("\"card_token\":\"card_1\""))
+        assertTrue(body.contains("\"amount\":\"8.00\""))
+        assertTrue(body.contains("\"name\":\"Cafe\""))
+        assertEquals("tx_2", simulated.token)
+    }
+
+    @Test
     fun failedCallHidesResponseBody() {
         server.enqueue(
             MockResponse()

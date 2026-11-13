@@ -85,6 +85,31 @@ class MarqetaCoreApi internal constructor(
         response.requireSuccess()
     }
 
+    suspend fun listTransactions(userToken: String): List<RemoteTransaction> {
+        val response = http.get(endpoint("transactions")) {
+            url {
+                parameters.append("user_token", userToken)
+                parameters.append("count", "25")
+                parameters.append("sort_by", "-created_time")
+            }
+        }
+        return response.bodyOrThrow<TransactionPage>().data.map { it.toRemote() }
+    }
+
+    suspend fun simulateAuthorization(cardToken: String, amount: String, merchant: String): RemoteTransaction {
+        val response = http.post(endpoint("simulations/cardtransactions/authorization")) {
+            contentType(ContentType.Application.Json)
+            setBody(
+                SimulateAuthorizationBody(
+                    cardToken = cardToken,
+                    amount = amount,
+                    cardAcceptor = CardAcceptorBody(mid = "11111", name = merchant),
+                ),
+            )
+        }
+        return response.bodyOrThrow<SimulationResponse>().transaction.toRemote()
+    }
+
     suspend fun availableBalance(userToken: String): RemoteBalance {
         val response = http.get(endpoint("balances/$userToken"))
         val gpa = response.bodyOrThrow<BalanceResponse>().gpa
@@ -142,6 +167,14 @@ data class RemoteCard(val token: String, val lastFour: String)
 
 data class RemoteBalance(val amount: Double, val currencyCode: String)
 
+data class RemoteTransaction(
+    val token: String,
+    val amount: Double,
+    val currencyCode: String,
+    val state: String,
+    val merchant: String,
+)
+
 @Serializable
 internal data class CreateUserBody(
     @SerialName("first_name") val firstName: String,
@@ -196,4 +229,49 @@ internal data class BalanceResponse(
 internal data class GpaBalance(
     @SerialName("available_balance") val availableBalance: Double,
     @SerialName("currency_code") val currencyCode: String = "USD",
+)
+
+@Serializable
+internal data class TransactionPage(
+    val data: List<TransactionItem> = emptyList(),
+)
+
+@Serializable
+internal data class SimulationResponse(
+    val transaction: TransactionItem,
+)
+
+@Serializable
+internal data class TransactionItem(
+    val token: String = "",
+    val amount: Double = 0.0,
+    val state: String = "",
+    @SerialName("currency_code") val currencyCode: String = "USD",
+    @SerialName("card_acceptor") val cardAcceptor: CardAcceptorResponse? = null,
+)
+
+@Serializable
+internal data class CardAcceptorResponse(
+    val name: String = "",
+)
+
+@Serializable
+internal data class SimulateAuthorizationBody(
+    @SerialName("card_token") val cardToken: String,
+    val amount: String,
+    @SerialName("card_acceptor") val cardAcceptor: CardAcceptorBody,
+)
+
+@Serializable
+internal data class CardAcceptorBody(
+    val mid: String,
+    val name: String,
+)
+
+private fun TransactionItem.toRemote(): RemoteTransaction = RemoteTransaction(
+    token = token,
+    amount = amount,
+    currencyCode = currencyCode,
+    state = state,
+    merchant = cardAcceptor?.name?.ifBlank { "Estabelecimento" } ?: "Estabelecimento",
 )
