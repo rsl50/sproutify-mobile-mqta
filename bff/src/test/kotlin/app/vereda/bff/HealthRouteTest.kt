@@ -15,11 +15,13 @@ class HealthRouteTest {
     fun healthDoesNotRequireALiveSandbox() = testApplication {
         application {
             module(
-                MarqetaCoreApi.create(
-                    MarqetaSettings(
-                        baseUrl = "https://sandbox-api.marqeta.com/v3",
-                        applicationToken = "unused-application-token",
-                        adminAccessToken = "unused-admin-access-token",
+                BffGraph.create(
+                    MarqetaCoreApi.create(
+                        MarqetaSettings(
+                            baseUrl = "https://sandbox-api.marqeta.com/v3",
+                            applicationToken = "unused-application-token",
+                            adminAccessToken = "unused-admin-access-token",
+                        ),
                     ),
                 ),
             )

@@ -32,4 +32,4 @@ jobs:
           printf 'sdk.dir=%s\n' "$SDK_ROOT" > local.properties
 
       - name: Build and test
-        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug :bff:test --stacktrace
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug :bff:test :contract:test --stacktrace

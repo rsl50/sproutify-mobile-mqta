@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "vereda"
 include(":app")
 include(":bff")
+include(":contract")

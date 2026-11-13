@@ -3,6 +3,8 @@ package app.vereda.mobile.ui
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import app.vereda.mobile.ui.screen.ScreenHost
+import app.vereda.mobile.ui.screen.ScreenUiState
 import app.vereda.mobile.ui.theme.VeredaTheme
 import org.junit.Rule
 import org.junit.Test
@@ -20,7 +22,7 @@ class ShellSmokeTest {
     fun shellShowsLoadingIndicator() {
         composeRule.setContent {
             VeredaTheme {
-                VeredaNavHost()
+                ScreenHost(state = ScreenUiState.Loading, onEvent = {})
             }
         }
         composeRule.onNodeWithTag("loading").assertIsDisplayed()
