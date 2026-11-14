@@ -10,6 +10,7 @@ import app.vereda.sdui.CardComponent
 import app.vereda.sdui.ComponentAction
 import app.vereda.sdui.FieldRule
 import app.vereda.sdui.Screen
+import app.vereda.sdui.SpacerComponent
 import app.vereda.sdui.TextComponent
 import app.vereda.sdui.TextFieldComponent
 
@@ -108,7 +109,12 @@ class ScreenCatalog {
         ),
     )
 
-    fun home(cardholder: Cardholder, card: IssuedCard, balance: Money): Screen = Screen(
+    fun home(
+        cardholder: Cardholder,
+        card: IssuedCard,
+        balance: Money,
+        limitLine: String? = null,
+    ): Screen = Screen(
         id = "home",
         title = "Início",
         components = listOf(
@@ -123,6 +129,17 @@ class ScreenCatalog {
                 lastFour = card.last4.value,
                 balanceLabel = "Saldo disponível",
                 balanceText = balance.format(),
+            ),
+            if (limitLine != null) {
+                TextComponent(id = "spend-limit", value = limitLine, style = "caption")
+            } else {
+                SpacerComponent(id = "spend-limit-gap", size = "small")
+            },
+            ButtonComponent(
+                id = "spend-limit",
+                label = "Limite de gastos",
+                style = "text",
+                action = ComponentAction(type = "navigate", screenId = "spend-limit"),
             ),
             TextComponent(
                 id = "card-state",
@@ -192,13 +209,47 @@ class ScreenCatalog {
         )
     }
 
-    fun simulatePurchase(): Screen = Screen(
+    fun spendLimit(current: String?): Screen = Screen(
+        id = "spend-limit",
+        title = "Limite de gastos",
+        components = listOf(
+            TextComponent(
+                id = "hint",
+                value = current ?: "Nenhum limite diário definido.",
+                style = "caption",
+            ),
+            TextFieldComponent(
+                id = "amount",
+                label = "Limite diário em USD",
+                keyboard = "number",
+                validations = listOf(
+                    FieldRule("required", "Informe o limite"),
+                    FieldRule("money", "Use um valor maior que zero, com até 2 casas."),
+                ),
+            ),
+            TextFieldComponent(
+                id = "usage",
+                label = "Máximo de compras no dia",
+                value = "3",
+                keyboard = "number",
+                validations = listOf(FieldRule("required", "Informe a quantidade")),
+            ),
+            ButtonComponent(
+                id = "submit",
+                label = "Salvar limite",
+                action = ComponentAction(type = "submit", endpoint = "actions/spend-limit"),
+            ),
+        ),
+    )
+
+    fun simulatePurchase(limitLine: String? = null): Screen = Screen(
         id = "simulate-purchase",
         title = "Simular compra",
         components = listOf(
             TextComponent(
                 id = "hint",
-                value = "Simula uma autorização no sandbox. O saldo da home é lido de novo depois.",
+                value = limitLine
+                    ?: "Simula uma autorização no sandbox. O saldo da home é lido de novo depois.",
                 style = "caption",
             ),
             TextFieldComponent(

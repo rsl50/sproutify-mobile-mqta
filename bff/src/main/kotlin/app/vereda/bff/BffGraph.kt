@@ -22,6 +22,10 @@ import app.vereda.bff.transactions.application.ListCardTransactions
 import app.vereda.bff.transactions.application.SimulatePurchase
 import app.vereda.bff.transactions.infrastructure.MarqetaCardTransactions
 import app.vereda.bff.experience.application.SubmitCardState
+import app.vereda.bff.experience.application.SubmitSpendLimit
+import app.vereda.bff.spending.application.SetSpendLimit
+import app.vereda.bff.spending.infrastructure.JdbcSpendLimitRepository
+import app.vereda.bff.spending.infrastructure.MarqetaSpendControl
 import app.vereda.bff.experience.application.SubmitSimulatePurchase
 import app.vereda.bff.issuing.application.ChangeCardState
 import app.vereda.bff.issuing.infrastructure.MarqetaCardState
@@ -36,6 +40,7 @@ class BffGraph(
     val signOut: SubmitSignOut,
     val simulatePurchase: SubmitSimulatePurchase,
     val cardState: SubmitCardState? = null,
+    val spendLimit: SubmitSpendLimit? = null,
 ) {
     companion object {
         fun create(
@@ -46,6 +51,7 @@ class BffGraph(
             val cardholders = JdbcCardholderRepository(database)
             val sessions = JdbcSessionRepository(database)
             val cards = JdbcIssuedCardRepository(database)
+            val spendLimits = JdbcSpendLimitRepository(database)
             val funding = MarqetaAccountFunding(api)
             val cardTransactions = MarqetaCardTransactions(api)
             val catalog = ScreenCatalog()
@@ -67,6 +73,7 @@ class BffGraph(
                     cards,
                     funding,
                     ListCardTransactions(cardTransactions),
+                    spendLimits,
                 ),
                 signup = SubmitSignup(
                     register = register,
@@ -83,12 +90,19 @@ class BffGraph(
                     cards = cards,
                     simulatePurchase = SimulatePurchase(cardTransactions, events),
                     catalog = catalog,
+                    spendLimits = spendLimits,
                 ),
                 cardState = SubmitCardState(
                     sessions = sessions,
                     cardholders = cardholders,
                     cards = cards,
                     changeCardState = ChangeCardState(cards, MarqetaCardState(api), events),
+                ),
+                spendLimit = SubmitSpendLimit(
+                    sessions = sessions,
+                    cardholders = cardholders,
+                    setSpendLimit = SetSpendLimit(spendLimits, MarqetaSpendControl(api), events),
+                    catalog = catalog,
                 ),
             )
         }

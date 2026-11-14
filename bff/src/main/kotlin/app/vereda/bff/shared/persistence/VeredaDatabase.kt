@@ -80,6 +80,17 @@ class VeredaDatabase private constructor(
                     )
                     statement.executeUpdate(
                         """
+                        CREATE TABLE IF NOT EXISTS spend_limit (
+                          cardholder_id VARCHAR PRIMARY KEY,
+                          control_token VARCHAR NOT NULL,
+                          amount_limit VARCHAR NOT NULL,
+                          usage_limit INT NOT NULL,
+                          velocity_window VARCHAR NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    statement.executeUpdate(
+                        """
                         CREATE TABLE IF NOT EXISTS app_session (
                           token VARCHAR PRIMARY KEY,
                           cardholder_id VARCHAR NOT NULL

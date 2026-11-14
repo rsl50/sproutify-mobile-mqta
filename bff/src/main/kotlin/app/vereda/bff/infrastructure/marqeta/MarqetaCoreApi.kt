@@ -10,6 +10,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.basicAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
@@ -112,6 +113,37 @@ class MarqetaCoreApi internal constructor(
             )
         }
         response.bodyOrThrow<SimulationResponse>().transaction.toRemote()
+    }
+
+    suspend fun saveVelocityControl(
+        token: String,
+        userToken: String,
+        amount: String,
+        usageLimit: Int,
+        window: String,
+        update: Boolean,
+    ) = io {
+        val body = VelocityControlBody(
+            token = token,
+            usageLimit = usageLimit,
+            amountLimit = amount,
+            velocityWindow = window,
+            association = VelocityAssociation(userToken = userToken),
+            currencyCode = "USD",
+            name = "Limite Vereda $window",
+        )
+        val response = if (update) {
+            http.put(endpoint("velocitycontrols/$token")) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        } else {
+            http.post(endpoint("velocitycontrols")) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        }
+        response.requireSuccess()
     }
 
     suspend fun transitionCard(cardToken: String, state: String): String = io {
@@ -251,6 +283,22 @@ internal data class CardProductItem(
 internal data class CreateCardBody(
     @SerialName("user_token") val userToken: String,
     @SerialName("card_product_token") val cardProductToken: String,
+)
+
+@Serializable
+internal data class VelocityControlBody(
+    val token: String,
+    @SerialName("usage_limit") val usageLimit: Int,
+    @SerialName("amount_limit") val amountLimit: String,
+    @SerialName("velocity_window") val velocityWindow: String,
+    val association: VelocityAssociation,
+    @SerialName("currency_code") val currencyCode: String,
+    val name: String,
+)
+
+@Serializable
+internal data class VelocityAssociation(
+    @SerialName("user_token") val userToken: String,
 )
 
 @Serializable
