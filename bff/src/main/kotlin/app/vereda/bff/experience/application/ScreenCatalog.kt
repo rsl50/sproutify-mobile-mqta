@@ -1,6 +1,7 @@
 package app.vereda.bff.experience.application
 
 import app.vereda.bff.funding.domain.Money
+import app.vereda.bff.issuing.domain.CardState
 import app.vereda.bff.issuing.domain.IssuedCard
 import app.vereda.bff.onboarding.domain.Cardholder
 import app.vereda.bff.transactions.domain.CardTransaction
@@ -122,6 +123,17 @@ class ScreenCatalog {
                 lastFour = card.last4.value,
                 balanceLabel = "Saldo disponível",
                 balanceText = balance.format(),
+            ),
+            TextComponent(
+                id = "card-state",
+                value = if (card.state == CardState.ACTIVE) "Cartão ativo" else "Cartão suspenso",
+                style = "caption",
+            ),
+            ButtonComponent(
+                id = "toggle-card",
+                label = if (card.state == CardState.ACTIVE) "Bloquear cartão" else "Desbloquear cartão",
+                style = "text",
+                action = ComponentAction(type = "submit", endpoint = "actions/card-state"),
             ),
             ButtonComponent(
                 id = "transactions",

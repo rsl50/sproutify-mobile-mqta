@@ -36,19 +36,38 @@ value class CardLast4 private constructor(val value: String) {
     }
 }
 
+enum class CardState {
+    ACTIVE,
+    SUSPENDED,
+    ;
+
+    fun toggled(): CardState = if (this == ACTIVE) SUSPENDED else ACTIVE
+
+    companion object {
+        fun parse(raw: String): CardState = when (raw.trim().uppercase()) {
+            "SUSPENDED" -> SUSPENDED
+            else -> ACTIVE
+        }
+    }
+}
+
 class IssuedCard private constructor(
     val cardholderId: CardholderId,
     val token: CardToken,
     val last4: CardLast4,
     val productToken: CardProductToken,
+    val state: CardState,
 ) {
+    fun withState(state: CardState): IssuedCard = IssuedCard(cardholderId, token, last4, productToken, state)
+
     companion object {
         fun issue(
             cardholderId: CardholderId,
             token: CardToken,
             last4: CardLast4,
             productToken: CardProductToken,
-        ): IssuedCard = IssuedCard(cardholderId, token, last4, productToken)
+            state: CardState = CardState.ACTIVE,
+        ): IssuedCard = IssuedCard(cardholderId, token, last4, productToken, state)
     }
 }
 

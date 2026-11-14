@@ -132,6 +132,22 @@ class MarqetaCoreApiTest {
     }
 
     @Test
+    fun transitionsCardBetweenActiveAndSuspended() = runBlocking {
+        server.enqueue(json("""{"state":"SUSPENDED","card_token":"card_1"}""", 201))
+
+        val state = api.transitionCard("card_1", "SUSPENDED")
+
+        assertEquals("SUSPENDED", state)
+        val recorded = server.takeRequest()
+        assertEquals("/cardtransitions", recorded.path)
+        val body = recorded.body.readUtf8()
+        assertTrue(body.contains("\"state\":\"SUSPENDED\""))
+        assertTrue(body.contains("\"channel\":\"API\""))
+        assertTrue(body.contains("\"reason_code\":\"01\""))
+        assertTrue(body.contains("\"card_token\":\"card_1\""))
+    }
+
+    @Test
     fun failedCallHidesResponseBody() {
         server.enqueue(
             MockResponse()

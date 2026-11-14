@@ -114,6 +114,22 @@ class MarqetaCoreApi internal constructor(
         response.bodyOrThrow<SimulationResponse>().transaction.toRemote()
     }
 
+    suspend fun transitionCard(cardToken: String, state: String): String = io {
+        val response = http.post(endpoint("cardtransitions")) {
+            contentType(ContentType.Application.Json)
+            setBody(
+                CardTransitionBody(
+                    cardToken = cardToken,
+                    state = state,
+                    channel = "API",
+                    reasonCode = if (state == "SUSPENDED") "01" else "32",
+                    reason = if (state == "SUSPENDED") "Bloqueio pedido pelo app" else "Desbloqueio pedido pelo app",
+                ),
+            )
+        }
+        response.bodyOrThrow<CardTransitionResponse>().state
+    }
+
     suspend fun availableBalance(userToken: String): RemoteBalance = io {
         val response = http.get(endpoint("balances/$userToken"))
         val gpa = response.bodyOrThrow<BalanceResponse>().gpa
@@ -235,6 +251,20 @@ internal data class CardProductItem(
 internal data class CreateCardBody(
     @SerialName("user_token") val userToken: String,
     @SerialName("card_product_token") val cardProductToken: String,
+)
+
+@Serializable
+internal data class CardTransitionBody(
+    @SerialName("card_token") val cardToken: String,
+    val state: String,
+    val channel: String,
+    @SerialName("reason_code") val reasonCode: String,
+    val reason: String,
+)
+
+@Serializable
+internal data class CardTransitionResponse(
+    val state: String = "",
 )
 
 @Serializable
