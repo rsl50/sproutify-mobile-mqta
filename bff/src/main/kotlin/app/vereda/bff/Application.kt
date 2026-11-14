@@ -83,6 +83,15 @@ fun Application.module(graph: BffGraph) {
         post("/actions/signout") {
             call.respond(graph.signOut.execute(call.request.header("X-Session-Token")))
         }
+        post("/actions/simulate-purchase") {
+            val body = call.receive<ActionRequest>()
+            call.respond(
+                graph.simulatePurchase.execute(
+                    sessionToken = call.request.header("X-Session-Token"),
+                    fields = body.fields,
+                ),
+            )
+        }
     }
 }
 

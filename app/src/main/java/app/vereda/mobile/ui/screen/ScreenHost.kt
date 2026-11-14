@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.foundation.clickable
@@ -55,6 +57,7 @@ fun ExperienceRoute(viewModel: ScreenViewModel) {
     ScreenHost(state = state, onEvent = viewModel::onEvent, snackbar = snackbar)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScreenHost(
     state: ScreenUiState,
@@ -82,16 +85,24 @@ fun ScreenHost(
             ) {
                 Text(state.message, modifier = Modifier.testTag("failure"))
             }
-            is ScreenUiState.Content -> ComponentList(
-                components = state.screen.components,
-                state = state,
-                onEvent = onEvent,
+            is ScreenUiState.Content -> PullToRefreshBox(
+                isRefreshing = state.refreshing,
+                onRefresh = { onEvent(ScreenUiEvent.Refresh) },
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .verticalScroll(rememberScrollState()),
-            )
+                    .testTag("pull-refresh"),
+            ) {
+                ComponentList(
+                    components = state.screen.components,
+                    state = state,
+                    onEvent = onEvent,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .verticalScroll(rememberScrollState()),
+                )
+            }
         }
     }
 }

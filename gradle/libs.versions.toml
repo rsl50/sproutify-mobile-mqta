@@ -21,6 +21,8 @@ robolectric = "4.14.1"
 mockk = "1.14.2"
 turbine = "1.2.1"
 kotlinxSerializationConverter = "1.0.0"
+bcrypt = "0.10.2"
+h2 = "2.3.232"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -59,6 +61,8 @@ ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+bcrypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }

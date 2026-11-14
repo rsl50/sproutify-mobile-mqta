@@ -33,6 +33,8 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.logback)
+    implementation(libs.bcrypt)
+    implementation(libs.h2)
 
     testImplementation(libs.junit)
     testImplementation(libs.ktor.server.test.host)

@@ -10,6 +10,7 @@ sealed interface ScreenUiState {
         val fields: Map<String, String>,
         val fieldErrors: Map<String, String>,
         val submitting: Boolean,
+        val refreshing: Boolean = false,
     ) : ScreenUiState
 
     data class Failed(val message: String) : ScreenUiState
@@ -25,6 +26,8 @@ sealed interface ScreenUiEvent {
     data class OpenScreen(val screenId: String) : ScreenUiEvent
 
     data object Retry : ScreenUiEvent
+
+    data object Refresh : ScreenUiEvent
 }
 
 sealed interface ScreenUiEffect {

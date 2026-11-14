@@ -6,6 +6,7 @@ import app.vereda.bff.experience.application.ScreenCatalog
 import app.vereda.bff.experience.application.ScreenQueries
 import app.vereda.bff.experience.application.SubmitSignIn
 import app.vereda.bff.experience.application.SubmitSignOut
+import app.vereda.bff.experience.application.SubmitSimulatePurchase
 import app.vereda.bff.experience.application.SubmitSignup
 import app.vereda.bff.funding.application.FundOpeningBalance
 import app.vereda.bff.funding.domain.AccountFunding
@@ -131,6 +132,16 @@ class SessionRouteTest {
             ),
             signIn = SubmitSignIn(SignIn(cardholders, sessions), catalog),
             signOut = SubmitSignOut(SignOut(sessions)),
+            simulatePurchase = SubmitSimulatePurchase(
+                sessions,
+                cardholders,
+                cards,
+                app.vereda.bff.transactions.application.SimulatePurchase(
+                    app.vereda.bff.transactions.application.IdleCardTransactions,
+                    events,
+                ),
+                catalog,
+            ),
         )
     }
 }

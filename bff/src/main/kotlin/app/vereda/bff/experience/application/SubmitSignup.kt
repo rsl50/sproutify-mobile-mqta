@@ -3,6 +3,7 @@ package app.vereda.bff.experience.application
 import app.vereda.bff.funding.application.FundOpeningBalance
 import app.vereda.bff.funding.domain.AccountFunding
 import app.vereda.bff.infrastructure.marqeta.MarqetaCallFailed
+import app.vereda.bff.infrastructure.marqeta.screenMessage
 import app.vereda.bff.issuing.application.IssueCard
 import app.vereda.bff.issuing.domain.IssuedCardRepository
 import app.vereda.bff.issuing.domain.NoActiveCardProduct
@@ -13,6 +14,8 @@ import app.vereda.bff.onboarding.domain.CardholderAlreadyExists
 import app.vereda.bff.onboarding.domain.CardholderRepository
 import app.vereda.bff.onboarding.domain.SessionRepository
 import app.vereda.bff.onboarding.domain.SessionToken
+import app.vereda.bff.transactions.application.IdleCardTransactions
+import app.vereda.bff.transactions.application.ListCardTransactions
 import app.vereda.sdui.ActionResponse
 import app.vereda.sdui.ClientEffect
 import app.vereda.sdui.FieldRules
@@ -26,6 +29,7 @@ class ScreenQueries(
     private val cardholders: CardholderRepository,
     private val cards: IssuedCardRepository,
     private val funding: AccountFunding,
+    private val transactions: ListCardTransactions = ListCardTransactions(IdleCardTransactions),
 ) {
     suspend fun get(screenId: String, sessionToken: String?): Screen {
         val cardholder = resolve(sessionToken)
@@ -34,6 +38,13 @@ class ScreenQueries(
             "signup" -> catalog.signup()
             "signin" -> catalog.signIn()
             "home" -> home(cardholder ?: throw SessionRequired())
+            "transactions" -> catalog.transactions(
+                transactions.execute((cardholder ?: throw SessionRequired()).userToken),
+            )
+            "simulate-purchase" -> {
+                if (cardholder == null) throw SessionRequired()
+                catalog.simulatePurchase()
+            }
             else -> throw UnknownScreen(screenId)
         }
     }
@@ -93,9 +104,9 @@ class SubmitSignup(
             ActionResponse(
                 effects = listOf(ClientEffect(type = "snackbar", message = "Não foi possível emitir o cartão.")),
             )
-        } catch (_: MarqetaCallFailed) {
+        } catch (error: MarqetaCallFailed) {
             ActionResponse(
-                effects = listOf(ClientEffect(type = "snackbar", message = "Não foi possível criar a conta.")),
+                effects = listOf(ClientEffect(type = "snackbar", message = error.screenMessage())),
             )
         }
     }
