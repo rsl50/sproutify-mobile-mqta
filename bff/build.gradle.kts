@@ -10,6 +10,14 @@ application {
     mainClass.set("app.vereda.bff.ApplicationKt")
 }
 
+tasks.register<JavaExec>("sandboxSmokeTest") {
+    group = "verification"
+    description = "Fluxo completo no Public Sandbox se as chaves existirem. Sem chaves, só avisa. Não entra no CI."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("app.vereda.bff.smoke.SandboxSmokeKt")
+    workingDir = rootProject.projectDir
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
