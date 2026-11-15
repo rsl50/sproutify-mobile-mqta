@@ -1,5 +1,7 @@
 package app.vereda.bff.jit.infrastructure
 
+import app.vereda.bff.config.MarqetaSettingsLoader
+import java.io.File
 import java.security.MessageDigest
 import java.util.Base64
 
@@ -36,6 +38,22 @@ class JitCredentials(
 
     companion object {
         private const val SYMBOLS = "@#\$%!^&*()\\_+~`-=[],;:'\"./<>?"
+
+        fun load(
+            env: Map<String, String> = System.getenv(),
+            files: List<File> = MarqetaSettingsLoader.defaultFiles(),
+        ): JitCredentials? {
+            val fileValues = linkedMapOf<String, String>()
+            files.filter { it.isFile }.forEach { file ->
+                fileValues.putAll(MarqetaSettingsLoader.parseKeyValues(file.readText()))
+            }
+            fun value(key: String): String? = env[key]?.trim()?.takeIf { it.isNotEmpty() }
+                ?: fileValues[key]?.trim()?.takeIf { it.isNotEmpty() }
+            val username = value("VEREDA_JIT_BASIC_USER") ?: return null
+            val password = value("VEREDA_JIT_BASIC_PASSWORD") ?: return null
+            if (policyProblem(password) != null) return null
+            return JitCredentials(username, password)
+        }
 
         fun policyProblem(password: String): String? = when {
             password.length !in 20..50 ->

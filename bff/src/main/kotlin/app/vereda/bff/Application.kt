@@ -6,6 +6,7 @@ import app.vereda.bff.debug.TraceScope
 import app.vereda.bff.experience.application.SessionRequired
 import app.vereda.bff.experience.application.UnknownScreen
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
+import app.vereda.bff.jit.infrastructure.JitCredentials
 import app.vereda.sdui.ActionRequest
 import app.vereda.sdui.ActionResponse
 import app.vereda.sdui.ClientEffect
@@ -40,7 +41,7 @@ fun main() {
     LoggerFactory.getLogger("vereda").info("Marqeta base URL configured: {}", settings.baseUrl)
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
-        module(BffGraph.create(api, traces = traces))
+        module(BffGraph.create(api, traces = traces, jitCredentials = JitCredentials.load()))
     }.start(wait = true)
 }
 
@@ -97,6 +98,10 @@ fun Application.module(graph: BffGraph) {
                 val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
                 call.respond(app.vereda.trace.TracePage(traces.since(session, since)))
             }
+        }
+        graph.jit?.let { jit ->
+            post("/jit/gateway") { jit.gateway(call) }
+            post("/jit/webhook") { jit.webhook(call) }
         }
         post("/actions/signup") {
             val body = call.receive<ActionRequest>()

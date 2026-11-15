@@ -29,6 +29,12 @@ import app.vereda.bff.spending.infrastructure.JdbcSpendLimitRepository
 import app.vereda.bff.spending.infrastructure.MarqetaSpendControl
 import app.vereda.bff.experience.application.SubmitSimulatePurchase
 import app.vereda.bff.issuing.application.ChangeCardState
+import app.vereda.bff.jit.application.ApplyFundingNotification
+import app.vereda.bff.jit.application.DecideFunding
+import app.vereda.bff.jit.infrastructure.JdbcFundingStore
+import app.vereda.bff.jit.infrastructure.JdbcJitSessions
+import app.vereda.bff.jit.infrastructure.JitCredentials
+import app.vereda.bff.jit.infrastructure.JitGateway
 import app.vereda.bff.issuing.infrastructure.MarqetaCardState
 import app.vereda.bff.shared.DomainEvent
 import app.vereda.bff.shared.DomainEventPublisher
@@ -43,6 +49,7 @@ class BffGraph(
     val cardState: SubmitCardState? = null,
     val spendLimit: SubmitSpendLimit? = null,
     val traces: TraceBuffer? = null,
+    val jit: JitGateway? = null,
 ) {
     companion object {
         fun create(
@@ -50,6 +57,7 @@ class BffGraph(
             events: DomainEventPublisher = LoggingEventPublisher(),
             database: VeredaDatabase = VeredaDatabase.open(),
             traces: TraceBuffer? = null,
+            jitCredentials: JitCredentials? = null,
         ): BffGraph {
             val cardholders = JdbcCardholderRepository(database)
             val sessions = JdbcSessionRepository(database)
@@ -103,6 +111,16 @@ class BffGraph(
                     changeCardState = ChangeCardState(cards, MarqetaCardState(api), events),
                 ),
                 traces = traces,
+                jit = jitCredentials?.let { credentials ->
+                    val ledgers = JdbcFundingStore(database)
+                    JitGateway(
+                        credentials = credentials,
+                        decide = DecideFunding(ledgers, cardholders, cards, spendLimits, events),
+                        notify = ApplyFundingNotification(ledgers, events),
+                        traces = traces,
+                        sessionTokens = JdbcJitSessions(database)::tokensFor,
+                    )
+                },
                 spendLimit = SubmitSpendLimit(
                     sessions = sessions,
                     cardholders = cardholders,
