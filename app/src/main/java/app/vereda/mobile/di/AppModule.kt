@@ -9,6 +9,11 @@ import app.vereda.mobile.data.BffScreenRepository
 import app.vereda.mobile.data.DataStoreSessionTokenStore
 import app.vereda.mobile.data.SessionHeaderInterceptor
 import app.vereda.mobile.data.SessionTokenStore
+import app.vereda.mobile.debug.AppTraceInterceptor
+import app.vereda.mobile.debug.BffDebugSync
+import app.vereda.mobile.debug.DebugTraceLog
+import app.vereda.mobile.debug.DebugTraceSync
+import app.vereda.mobile.debug.NoOpDebugTraceSync
 import app.vereda.mobile.domain.ScreenRepository
 import app.vereda.sdui.ScreenJson
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -32,10 +37,29 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun bffApi(sessions: SessionTokenStore): BffApi {
+    fun debugTraceLog(): DebugTraceLog = DebugTraceLog()
+
+    @Provides
+    @Singleton
+    fun debugTraceSync(
+        log: DebugTraceLog,
+        api: BffApi,
+        sessions: SessionTokenStore,
+    ): DebugTraceSync = if (BuildConfig.DEBUG) {
+        BffDebugSync(api, sessions, log)
+    } else {
+        NoOpDebugTraceSync
+    }
+
+    @Provides
+    @Singleton
+    fun bffApi(sessions: SessionTokenStore, log: DebugTraceLog): BffApi {
         val baseUrl = BffEndpoint.resolve(BuildConfig.BFF_BASE_URL)
         val client = OkHttpClient.Builder()
             .addInterceptor(SessionHeaderInterceptor(sessions))
+            .apply {
+                if (BuildConfig.DEBUG) addInterceptor(AppTraceInterceptor(log))
+            }
             .build()
         return Retrofit.Builder()
             .baseUrl(baseUrl)

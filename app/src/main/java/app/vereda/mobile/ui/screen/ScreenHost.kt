@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +30,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import app.vereda.mobile.BuildConfig
+import app.vereda.mobile.ui.debug.DebugPanel
 import app.vereda.mobile.ui.renderer.ComponentList
 import kotlinx.coroutines.launch
 
@@ -54,7 +57,14 @@ fun ExperienceRoute(viewModel: ScreenViewModel) {
             }
         }
     }
-    ScreenHost(state = state, onEvent = viewModel::onEvent, snackbar = snackbar)
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            ScreenHost(state = state, onEvent = viewModel::onEvent, snackbar = snackbar)
+        }
+        if (BuildConfig.DEBUG) {
+            DebugPanel()
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
