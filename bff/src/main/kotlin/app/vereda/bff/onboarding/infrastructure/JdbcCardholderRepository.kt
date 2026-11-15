@@ -20,6 +20,13 @@ class JdbcCardholderRepository(
         }
     }
 
+    override fun findByUserToken(token: UserToken): Cardholder? = database.read { connection ->
+        connection.prepareStatement("SELECT * FROM cardholder WHERE user_token = ?").use { statement ->
+            statement.setString(1, token.value)
+            statement.executeQuery().use { rows -> if (rows.next()) rows.toCardholder() else null }
+        }
+    }
+
     override fun findById(id: CardholderId): Cardholder? = database.read { connection ->
         connection.prepareStatement("SELECT * FROM cardholder WHERE id = ?").use { statement ->
             statement.setString(1, id.value)

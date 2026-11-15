@@ -97,6 +97,39 @@ class VeredaDatabase private constructor(
                         )
                         """.trimIndent(),
                     )
+                    statement.executeUpdate(
+                        """
+                        CREATE TABLE IF NOT EXISTS jit_account (
+                          user_token VARCHAR PRIMARY KEY,
+                          ledger_balance VARCHAR NOT NULL,
+                          available_balance VARCHAR NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    statement.executeUpdate(
+                        """
+                        CREATE TABLE IF NOT EXISTS jit_hold (
+                          token VARCHAR PRIMARY KEY,
+                          user_token VARCHAR NOT NULL,
+                          original_token VARCHAR,
+                          amount VARCHAR NOT NULL,
+                          remaining VARCHAR NOT NULL,
+                          state VARCHAR NOT NULL,
+                          created_at BIGINT NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    statement.executeUpdate(
+                        """
+                        CREATE TABLE IF NOT EXISTS jit_seen (
+                          channel VARCHAR NOT NULL,
+                          token VARCHAR NOT NULL,
+                          method VARCHAR NOT NULL,
+                          outcome VARCHAR NOT NULL,
+                          PRIMARY KEY (channel, token, method)
+                        )
+                        """.trimIndent(),
+                    )
                 }
             }
         }
