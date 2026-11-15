@@ -23,6 +23,8 @@ turbine = "1.2.1"
 kotlinxSerializationConverter = "1.0.0"
 bcrypt = "0.10.2"
 h2 = "2.3.232"
+androidxJunit = "1.2.1"
+espresso = "3.6.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -63,6 +65,8 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 bcrypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
+androidx-junit = { module = "androidx.test.ext:junit", version.ref = "androidxJunit" }
+espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }

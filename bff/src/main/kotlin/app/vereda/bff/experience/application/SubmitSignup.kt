@@ -14,6 +14,7 @@ import app.vereda.bff.onboarding.domain.CardholderAlreadyExists
 import app.vereda.bff.onboarding.domain.CardholderRepository
 import app.vereda.bff.onboarding.domain.SessionRepository
 import app.vereda.bff.onboarding.domain.SessionToken
+import app.vereda.bff.spending.domain.SpendLimitRepository
 import app.vereda.bff.transactions.application.IdleCardTransactions
 import app.vereda.bff.transactions.application.ListCardTransactions
 import app.vereda.sdui.ActionResponse
@@ -30,6 +31,7 @@ class ScreenQueries(
     private val cards: IssuedCardRepository,
     private val funding: AccountFunding,
     private val transactions: ListCardTransactions = ListCardTransactions(IdleCardTransactions),
+    private val spendLimits: SpendLimitRepository? = null,
 ) {
     suspend fun get(screenId: String, sessionToken: String?): Screen {
         val cardholder = resolve(sessionToken)
@@ -43,7 +45,11 @@ class ScreenQueries(
             )
             "simulate-purchase" -> {
                 if (cardholder == null) throw SessionRequired()
-                catalog.simulatePurchase()
+                catalog.simulatePurchase(limitLine(cardholder))
+            }
+            "spend-limit" -> {
+                if (cardholder == null) throw SessionRequired()
+                catalog.spendLimit(limitLine(cardholder))
             }
             else -> throw UnknownScreen(screenId)
         }
@@ -58,7 +64,12 @@ class ScreenQueries(
     private suspend fun home(cardholder: Cardholder): Screen {
         val card = cards.findByCardholder(cardholder.id) ?: throw SessionRequired()
         val balance = funding.availableBalance(cardholder.userToken)
-        return catalog.home(cardholder, card, balance)
+        return catalog.home(cardholder, card, balance, limitLine(cardholder))
+    }
+
+    private fun limitLine(cardholder: Cardholder): String? {
+        val limit = spendLimits?.find(cardholder.id) ?: return null
+        return "Limite diário: ${limit.amount.format()} · até ${limit.usageLimit} compras"
     }
 }
 

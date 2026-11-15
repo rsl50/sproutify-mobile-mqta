@@ -6,6 +6,7 @@ import app.vereda.bff.issuing.domain.IssuedCardRepository
 import app.vereda.bff.onboarding.domain.CardholderRepository
 import app.vereda.bff.onboarding.domain.SessionRepository
 import app.vereda.bff.onboarding.domain.SessionToken
+import app.vereda.bff.spending.domain.SpendLimitRepository
 import app.vereda.bff.transactions.application.SimulatePurchase
 import app.vereda.bff.transactions.domain.MerchantName
 import app.vereda.bff.transactions.domain.purchaseAmount
@@ -19,6 +20,7 @@ class SubmitSimulatePurchase(
     private val cards: IssuedCardRepository,
     private val simulatePurchase: SimulatePurchase,
     private val catalog: ScreenCatalog,
+    private val spendLimits: SpendLimitRepository? = null,
 ) {
     suspend fun execute(sessionToken: String?, fields: Map<String, String>): ActionResponse {
         val token = sessionToken?.takeIf { it.isNotBlank() }?.let(SessionToken::of)
@@ -31,14 +33,23 @@ class SubmitSimulatePurchase(
         val errors = FieldRules.errors(catalog.simulatePurchase(), fields)
         if (errors.isNotEmpty()) return ActionResponse(fieldErrors = errors)
         return try {
-            simulatePurchase.execute(
+            val requested = purchaseAmount(fields["amount"].orEmpty())
+            val transaction = simulatePurchase.execute(
                 cardToken = card.token,
-                amount = purchaseAmount(fields["amount"].orEmpty()),
+                amount = requested,
                 merchant = MerchantName.parse(fields["merchant"].orEmpty()),
             )
+            val limit = spendLimits?.find(cardholder.id)
+            val declined = transaction.state.equals("DECLINED", ignoreCase = true)
+            val message = when {
+                declined && limit != null && !limit.covers(requested) ->
+                    "Compra recusada: acima do limite de ${limit.amount.format()}."
+                declined -> "A Marqeta recusou a compra."
+                else -> "Compra simulada."
+            }
             ActionResponse(
                 effects = listOf(
-                    ClientEffect(type = "snackbar", message = "Compra simulada."),
+                    ClientEffect(type = "snackbar", message = message),
                     ClientEffect(type = "navigate", screenId = "home"),
                 ),
             )

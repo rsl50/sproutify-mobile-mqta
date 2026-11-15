@@ -27,6 +27,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BFF_BASE_URL", "\"$bffBaseUrl\"")
     }
 
@@ -95,6 +96,12 @@ dependencies {
     testImplementation(libs.ktor.server.content.negotiation)
     testImplementation(libs.ktor.serialization.json)
     testImplementation(libs.logback)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.mockwebserver)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.androidx.compose.ui.test.manifest)

@@ -83,6 +83,15 @@ fun Application.module(graph: BffGraph) {
         post("/actions/signout") {
             call.respond(graph.signOut.execute(call.request.header("X-Session-Token")))
         }
+        post("/actions/spend-limit") {
+            val handler = graph.spendLimit ?: throw IllegalStateException("spend limit is not configured")
+            val body = call.receive<ActionRequest>()
+            call.respond(handler.execute(call.request.header("X-Session-Token"), body.fields))
+        }
+        post("/actions/card-state") {
+            val handler = graph.cardState ?: throw IllegalStateException("card state is not configured")
+            call.respond(handler.execute(call.request.header("X-Session-Token")))
+        }
         post("/actions/simulate-purchase") {
             val body = call.receive<ActionRequest>()
             call.respond(

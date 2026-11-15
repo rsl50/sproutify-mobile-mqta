@@ -12,7 +12,9 @@ O código, o nome e a arte são próprios. O demo web não tem arquivo `LICENSE`
 4. "Transações" pede `GET /transactions?user_token=...` e a tela lista comércio, valor e estado.
 5. "Simular compra" manda `POST /simulations/cardtransactions/authorization` (Simulations 2.0, o endpoint atual da doc para sandbox público e privado) e volta para a home, que relê o saldo. O use case publica `PurchaseSimulated`.
 6. Puxar a tela para baixo repete o `GET` da tela atual. Os botões "Atualizar" fazem o mesmo via ação `refresh`.
-7. Sair encerra a sessão. Entrar de novo confere e-mail e senha só no BFF.
+7. "Bloquear cartão" / "Desbloquear cartão" chama `POST /cardtransitions` (`ACTIVE` ↔ `SUSPENDED`, canal `API`) e publica `CardStateChanged`. A home mostra o estado.
+8. "Limite de gastos" grava um velocity control do usuário (`POST /velocitycontrols`, ou `PUT` se o token já existe) com `amount_limit`, `usage_limit` e janela `DAY`. Uma compra simulada que volta `DECLINED` acima desse valor aparece como recusa.
+9. Sair encerra a sessão. Entrar de novo confere e-mail e senha só no BFF.
 
 A senha não existe na Marqeta nesse fluxo (o sign-in do demo web também é um stub). Ela fica em bcrypt (custo 10) no agregado Cardholder. Cardholder, sessão e cartão (token e last4, nunca PAN) vão para um H2 em `bff/data/vereda` (gitignored; `VEREDA_DB_PATH` muda o arquivo). Reiniciar o BFF não apaga a conta local.
 
@@ -58,6 +60,7 @@ flowchart LR
 | Card Issuing | IssuedCard, CardLast4, CardToken, CardProductToken | CardIssued |
 | Funding / Balance | Money, Currency, saldo disponível | AccountFunded |
 | Transactions | CardTransaction, MerchantName | PurchaseSimulated |
+| Spending | SpendLimit, SpendWindow | SpendLimitSet |
 | Experience / SDUI | Screen, Component, Action, Effect | monta as telas a partir dos outros contextos |
 
 Cada contexto tem domínio (entidades, value objects, portas), aplicação (use cases) e infraestrutura. Os DTOs da Marqeta não saem de `infrastructure/marqeta`; os adapters traduzem para o modelo de domínio. O publisher de eventos é em processo, só para o demo.
@@ -160,14 +163,25 @@ Testes, sem sandbox:
 ./gradlew :app:testDebugUnitTest :bff:test :contract:test
 ```
 
-O cliente Marqeta e o cliente do app são exercitados com MockWebServer. `AppAgainstBffTest` sobe o BFF de verdade, aponta a Core API para um MockWebServer e percorre cadastro, lista e compra simulada com o repositório HTTP do app. Roda no `testDebugUnitTest`, sem emulador. Não há `androidTest` instrumentado: o CI não tem dispositivo, e esse teste JVM cobre o mesmo contrato HTTP.
+Smoke test real, só na sua máquina, e só se as chaves estiverem no ambiente ou em `bff/local.properties`. Sem chaves ele termina com aviso e código 0. Não roda no CI. O relatório mostra last4, saldo, estado da compra e quantidade de transações, nunca os tokens:
 
-Não há chamada real ao sandbox neste repositório.
+```bash
+./gradlew :bff:sandboxSmokeTest
+```
+
+O cliente Marqeta e o cliente do app são exercitados com MockWebServer. `AppAgainstBffTest` sobe o BFF de verdade contra esse fake. `SignupFlowTest` é um `androidTest` que abre o app contra um BFF falso na própria instrumentação. O CI obrigatório compila esse teste (`assembleDebugAndroidTest`) e não o executa. O workflow **Instrumented UI** é `workflow_dispatch`: emulador no GitHub Actions costuma estourar o tempo ou falhar no boot, então fica manual.
+
+```bash
+./gradlew :app:connectedDebugAndroidTest
+```
+
+Não há chamada automática ao sandbox. O smoke test acima é o caminho opcional para isso.
 
 ## Limitações
 
 - O BFF guarda as chaves de admin e não autentica o chamador além do token de sessão opaco. Deixe-o só na máquina local.
-- A doc de Simulations 2.0 descreve o endpoint de autorização para o sandbox público e o privado. Isso não foi executado contra um sandbox real. Se o programa recusar a simulação, a home mostra a mensagem mapeada do status HTTP.
+- A doc de Simulations 2.0 descreve o endpoint de autorização para o sandbox público e o privado. O bloqueio usa `POST /cardtransitions` e o limite `POST /velocitycontrols` (com `PUT` se o controle já existe). Nenhum desses foi executado contra um sandbox real neste ambiente. O smoke test é o jeito de fazer isso localmente.
+- O `androidTest` compila no CI e não foi executado num emulador aqui. O job de emulador é manual de propósito.
 - O arquivo H2 fica na máquina que roda o BFF. Apagá-lo esquece a conta local; os usuários no sandbox continuam lá.
 - O GPA order fixo de USD 100 usa o funding source `sandbox_program_funding` do public sandbox.
 - O card product é o primeiro ativo devolvido por `GET /cardproducts`, não um token fixo.

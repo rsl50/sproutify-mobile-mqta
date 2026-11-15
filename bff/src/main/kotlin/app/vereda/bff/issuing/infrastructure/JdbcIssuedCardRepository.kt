@@ -1,6 +1,7 @@
 package app.vereda.bff.issuing.infrastructure
 
 import app.vereda.bff.issuing.domain.CardLast4
+import app.vereda.bff.issuing.domain.CardState
 import app.vereda.bff.issuing.domain.CardProductToken
 import app.vereda.bff.issuing.domain.CardToken
 import app.vereda.bff.issuing.domain.IssuedCard
@@ -13,7 +14,7 @@ class JdbcIssuedCardRepository(
 ) : IssuedCardRepository {
     override fun findByCardholder(cardholderId: CardholderId): IssuedCard? = database.read { connection ->
         connection.prepareStatement(
-            "SELECT token, last_four, product_token FROM issued_card WHERE cardholder_id = ?",
+            "SELECT token, last_four, product_token, state FROM issued_card WHERE cardholder_id = ?",
         ).use { statement ->
             statement.setString(1, cardholderId.value)
             statement.executeQuery().use { rows ->
@@ -23,6 +24,7 @@ class JdbcIssuedCardRepository(
                     token = CardToken.of(rows.getString("token")),
                     last4 = CardLast4.of(rows.getString("last_four").trim()),
                     productToken = CardProductToken.of(rows.getString("product_token")),
+                    state = CardState.parse(rows.getString("state").orEmpty()),
                 )
             }
         }
@@ -32,15 +34,16 @@ class JdbcIssuedCardRepository(
         database.write { connection ->
             connection.prepareStatement(
                 """
-                MERGE INTO issued_card (cardholder_id, token, last_four, product_token)
+                MERGE INTO issued_card (cardholder_id, token, last_four, product_token, state)
                 KEY (cardholder_id)
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """.trimIndent(),
             ).use { statement ->
                 statement.setString(1, card.cardholderId.value)
                 statement.setString(2, card.token.value)
                 statement.setString(3, card.last4.value)
                 statement.setString(4, card.productToken.value)
+                statement.setString(5, card.state.name)
                 statement.executeUpdate()
             }
         }

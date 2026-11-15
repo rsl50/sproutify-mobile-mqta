@@ -3,6 +3,7 @@ package app.vereda.mobile.di
 import android.content.Context
 import app.vereda.mobile.BuildConfig
 import app.vereda.mobile.R
+import app.vereda.mobile.data.BffEndpoint
 import app.vereda.mobile.data.BffApi
 import app.vereda.mobile.data.BffScreenRepository
 import app.vereda.mobile.data.DataStoreSessionTokenStore
@@ -32,7 +33,7 @@ object AppModule {
     @Provides
     @Singleton
     fun bffApi(sessions: SessionTokenStore): BffApi {
-        val baseUrl = BuildConfig.BFF_BASE_URL.let { if (it.endsWith("/")) it else "$it/" }
+        val baseUrl = BffEndpoint.resolve(BuildConfig.BFF_BASE_URL)
         val client = OkHttpClient.Builder()
             .addInterceptor(SessionHeaderInterceptor(sessions))
             .build()

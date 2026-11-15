@@ -132,6 +132,38 @@ class MarqetaCoreApiTest {
     }
 
     @Test
+    fun savesAUserVelocityControl() = runBlocking {
+        server.enqueue(json("""{"token":"ctrl_1"}""", 201))
+
+        api.saveVelocityControl("ctrl_1", "usr_1", "20.00", 3, "DAY", update = false)
+
+        val recorded = server.takeRequest()
+        assertEquals("POST", recorded.method)
+        assertEquals("/velocitycontrols", recorded.path)
+        val body = recorded.body.readUtf8()
+        assertTrue(body.contains("\"amount_limit\":\"20.00\""))
+        assertTrue(body.contains("\"usage_limit\":3"))
+        assertTrue(body.contains("\"velocity_window\":\"DAY\""))
+        assertTrue(body.contains("\"user_token\":\"usr_1\""))
+    }
+
+    @Test
+    fun transitionsCardBetweenActiveAndSuspended() = runBlocking {
+        server.enqueue(json("""{"state":"SUSPENDED","card_token":"card_1"}""", 201))
+
+        val state = api.transitionCard("card_1", "SUSPENDED")
+
+        assertEquals("SUSPENDED", state)
+        val recorded = server.takeRequest()
+        assertEquals("/cardtransitions", recorded.path)
+        val body = recorded.body.readUtf8()
+        assertTrue(body.contains("\"state\":\"SUSPENDED\""))
+        assertTrue(body.contains("\"channel\":\"API\""))
+        assertTrue(body.contains("\"reason_code\":\"01\""))
+        assertTrue(body.contains("\"card_token\":\"card_1\""))
+    }
+
+    @Test
     fun failedCallHidesResponseBody() {
         server.enqueue(
             MockResponse()
