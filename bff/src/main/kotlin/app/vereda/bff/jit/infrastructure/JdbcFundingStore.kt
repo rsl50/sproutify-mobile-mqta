@@ -1,5 +1,6 @@
 package app.vereda.bff.jit.infrastructure
 
+import app.vereda.bff.jit.domain.AccountLedger
 import app.vereda.bff.jit.domain.FundingHold
 import app.vereda.bff.jit.domain.HoldState
 import app.vereda.bff.jit.domain.LedgerState
@@ -11,12 +12,12 @@ import java.sql.Connection
 
 class JdbcFundingStore(
     private val database: VeredaDatabase,
-) {
-    fun balances(userToken: String): LedgerState = database.read { connection ->
+) : AccountLedger {
+    override fun balances(userToken: String): LedgerState = database.read { connection ->
         load(connection, userToken, channel = "", token = "", method = "")
     }
 
-    fun open(userToken: String, amount: BigDecimal): LedgerState = database.write { connection ->
+    override fun open(userToken: String, amount: BigDecimal): LedgerState = database.write { connection ->
         val existing = load(connection, userToken, channel = "", token = "", method = "")
         if (accountExists(connection, userToken)) {
             existing

@@ -6,7 +6,7 @@ import app.vereda.bff.debug.TraceScope
 import app.vereda.bff.experience.application.SessionRequired
 import app.vereda.bff.experience.application.UnknownScreen
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
-import app.vereda.bff.jit.infrastructure.JitCredentials
+import app.vereda.bff.jit.setup.loadJitRuntime
 import app.vereda.sdui.ActionRequest
 import app.vereda.sdui.ActionResponse
 import app.vereda.sdui.ClientEffect
@@ -41,7 +41,16 @@ fun main() {
     LoggerFactory.getLogger("vereda").info("Marqeta base URL configured: {}", settings.baseUrl)
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
-        module(BffGraph.create(api, traces = traces, jitCredentials = JitCredentials.load()))
+        val jit = loadJitRuntime()
+        module(
+            BffGraph.create(
+                api,
+                traces = traces,
+                jitCredentials = jit.credentials,
+                cardFunding = jit.cardFunding,
+                jitProductToken = jit.cardProductToken,
+            ),
+        )
     }.start(wait = true)
 }
 

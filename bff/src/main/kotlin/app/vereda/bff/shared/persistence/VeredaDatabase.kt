@@ -71,12 +71,16 @@ class VeredaDatabase private constructor(
                           token VARCHAR NOT NULL,
                           last_four CHAR(4) NOT NULL,
                           product_token VARCHAR NOT NULL,
-                          state VARCHAR DEFAULT 'ACTIVE' NOT NULL
+                          state VARCHAR DEFAULT 'ACTIVE' NOT NULL,
+                          funding_mode VARCHAR DEFAULT 'GPA' NOT NULL
                         )
                         """.trimIndent(),
                     )
                     statement.executeUpdate(
                         "ALTER TABLE issued_card ADD COLUMN IF NOT EXISTS state VARCHAR DEFAULT 'ACTIVE' NOT NULL",
+                    )
+                    statement.executeUpdate(
+                        "ALTER TABLE issued_card ADD COLUMN IF NOT EXISTS funding_mode VARCHAR DEFAULT 'GPA' NOT NULL",
                     )
                     statement.executeUpdate(
                         """

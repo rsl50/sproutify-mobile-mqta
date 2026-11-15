@@ -36,6 +36,16 @@ value class CardLast4 private constructor(val value: String) {
     }
 }
 
+enum class CardFundingMode {
+    GPA,
+    JIT,
+    ;
+
+    companion object {
+        fun parse(raw: String?): CardFundingMode = if (raw.equals("JIT", ignoreCase = true)) JIT else GPA
+    }
+}
+
 enum class CardState {
     ACTIVE,
     SUSPENDED,
@@ -57,8 +67,10 @@ class IssuedCard private constructor(
     val last4: CardLast4,
     val productToken: CardProductToken,
     val state: CardState,
+    val fundingMode: CardFundingMode,
 ) {
-    fun withState(state: CardState): IssuedCard = IssuedCard(cardholderId, token, last4, productToken, state)
+    fun withState(state: CardState): IssuedCard =
+        IssuedCard(cardholderId, token, last4, productToken, state, fundingMode)
 
     companion object {
         fun issue(
@@ -67,7 +79,8 @@ class IssuedCard private constructor(
             last4: CardLast4,
             productToken: CardProductToken,
             state: CardState = CardState.ACTIVE,
-        ): IssuedCard = IssuedCard(cardholderId, token, last4, productToken, state)
+            fundingMode: CardFundingMode = CardFundingMode.GPA,
+        ): IssuedCard = IssuedCard(cardholderId, token, last4, productToken, state, fundingMode)
     }
 }
 
@@ -87,4 +100,7 @@ interface IssuedCardRepository {
 
 interface CardIssuing {
     suspend fun issueFor(userToken: UserToken): IssuedCardDraft
+
+    suspend fun issueOnProduct(userToken: UserToken, productToken: CardProductToken): IssuedCardDraft =
+        issueFor(userToken)
 }

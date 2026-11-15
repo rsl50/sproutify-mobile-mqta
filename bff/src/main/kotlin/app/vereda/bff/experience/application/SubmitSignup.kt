@@ -4,7 +4,13 @@ import app.vereda.bff.debug.TraceBuffer
 import app.vereda.bff.debug.TraceScope
 import app.vereda.bff.funding.application.FundOpeningBalance
 import app.vereda.bff.funding.domain.AccountFunding
+import app.vereda.bff.funding.domain.Currency
+import app.vereda.bff.funding.domain.Money
 import app.vereda.bff.infrastructure.marqeta.MarqetaCallFailed
+import app.vereda.bff.issuing.domain.CardFundingMode
+import app.vereda.bff.issuing.domain.CardProductToken
+import app.vereda.bff.jit.domain.AccountLedger
+import app.vereda.bff.jit.domain.LedgerState
 import app.vereda.bff.infrastructure.marqeta.screenMessage
 import app.vereda.bff.issuing.application.IssueCard
 import app.vereda.bff.issuing.domain.IssuedCardRepository
@@ -23,6 +29,8 @@ import app.vereda.sdui.ActionResponse
 import app.vereda.sdui.ClientEffect
 import app.vereda.sdui.FieldRules
 import app.vereda.sdui.Screen
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 class SessionRequired : RuntimeException()
 
@@ -34,6 +42,7 @@ class ScreenQueries(
     private val funding: AccountFunding,
     private val transactions: ListCardTransactions = ListCardTransactions(IdleCardTransactions),
     private val spendLimits: SpendLimitRepository? = null,
+    private val ledgers: AccountLedger? = null,
 ) {
     suspend fun get(screenId: String, sessionToken: String?): Screen {
         val cardholder = resolve(sessionToken)
@@ -65,6 +74,21 @@ class ScreenQueries(
 
     private suspend fun home(cardholder: Cardholder): Screen {
         val card = cards.findByCardholder(cardholder.id) ?: throw SessionRequired()
+        if (card.fundingMode == CardFundingMode.JIT) {
+            val balances = ledgers?.balances(cardholder.userToken.value) ?: LedgerState(
+                ledger = BigDecimal.ZERO,
+                available = BigDecimal.ZERO,
+                holds = emptyList(),
+                priorOutcome = null,
+            )
+            return catalog.home(
+                cardholder,
+                card,
+                displayMoney(balances.available),
+                limitLine(cardholder),
+                ledgerLine(balances),
+            )
+        }
         val balance = funding.availableBalance(cardholder.userToken)
         return catalog.home(cardholder, card, balance, limitLine(cardholder))
     }
@@ -82,6 +106,9 @@ class SubmitSignup(
     private val sessions: SessionRepository,
     private val catalog: ScreenCatalog,
     private val traces: TraceBuffer? = null,
+    private val fundingMode: CardFundingMode = CardFundingMode.GPA,
+    private val jitProductToken: String? = null,
+    private val ledgers: AccountLedger? = null,
 ) {
     suspend fun execute(fields: Map<String, String>): ActionResponse {
         val screen = catalog.signup()
@@ -90,6 +117,27 @@ class SubmitSignup(
             return ActionResponse(fieldErrors = errors)
         }
         return try {
+            val mode = when (fields["funding"]?.trim()?.lowercase()) {
+                null, "" -> fundingMode
+                "gpa" -> CardFundingMode.GPA
+                "jit" -> CardFundingMode.JIT
+                else -> return ActionResponse(
+                    effects = listOf(ClientEffect(type = "snackbar", message = "Use gpa ou jit.")),
+                )
+            }
+            val product = if (mode == CardFundingMode.JIT) {
+                jitProductToken?.takeIf { it.isNotBlank() }?.let(CardProductToken::of)
+                    ?: return ActionResponse(
+                        effects = listOf(ClientEffect(type = "snackbar", message = "Produto JIT não configurado.")),
+                    )
+            } else {
+                null
+            }
+            if (mode == CardFundingMode.JIT && ledgers == null) {
+                return ActionResponse(
+                    effects = listOf(ClientEffect(type = "snackbar", message = "Ledger JIT indisponível.")),
+                )
+            }
             val cardholder = register.execute(
                 RegisterCardholderCommand(
                     firstName = fields["firstName"].orEmpty(),
@@ -98,15 +146,32 @@ class SubmitSignup(
                     password = fields["password"].orEmpty(),
                 ),
             )
-            val card = issueCard.execute(cardholder)
-            val balance = fundOpeningBalance.execute(cardholder.userToken)
+            val card = issueCard.execute(cardholder, mode, product)
+            val balance = if (mode == CardFundingMode.JIT) {
+                displayMoney(ledgers!!.open(cardholder.userToken.value, Money.openingBalance.amount).available)
+            } else {
+                fundOpeningBalance.execute(cardholder.userToken)
+            }
             val session = sessions.open(cardholder.id)
             kotlin.coroutines.coroutineContext[TraceScope]?.let { traces?.adopt(it.requestId, session.value) }
             ActionResponse(
                 effects = listOf(
                     ClientEffect(type = "setSession", token = session.value),
                     ClientEffect(type = "snackbar", message = "Conta criada."),
-                    ClientEffect(type = "showScreen", screen = catalog.home(cardholder, card, balance)),
+                    ClientEffect(
+                        type = "showScreen",
+                        screen = if (mode == CardFundingMode.JIT) {
+                            val balances = ledgers?.balances(cardholder.userToken.value)
+                            catalog.home(
+                                cardholder,
+                                card,
+                                balance,
+                                ledgerLine = balances?.let(::ledgerLine),
+                            )
+                        } else {
+                            catalog.home(cardholder, card, balance)
+                        },
+                    ),
                 ),
             )
         } catch (_: CardholderAlreadyExists) {
@@ -126,3 +191,12 @@ class SubmitSignup(
         }
     }
 }
+
+internal fun displayMoney(amount: BigDecimal): Money {
+    val scaled = amount.setScale(2, RoundingMode.HALF_UP)
+    return if (scaled.signum() < 0) Money.parse("0.00", Currency.USD) else Money(scaled, Currency.USD)
+}
+
+internal fun ledgerLine(state: LedgerState): String =
+    "Ledger USD ${state.ledger.setScale(2, RoundingMode.HALF_UP).toPlainString()}" +
+        " · disponível USD ${state.available.setScale(2, RoundingMode.HALF_UP).toPlainString()}"

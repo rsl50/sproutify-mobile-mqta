@@ -58,6 +58,35 @@ class MarqetaCardIssuingTest {
     }
 
     @Test
+    fun gpaIssuingSkipsTheJitProduct() = runBlocking {
+        server.enqueue(
+            json(
+                """
+                {"data":[
+                  {"token":"vereda_jit_card","active":true},
+                  {"token":"cp_gpa","active":true}
+                ]}
+                """.trimIndent(),
+            ),
+        )
+        server.enqueue(json("""{"token":"card_gpa","last_four":"1111"}""", 201))
+        val draft = MarqetaCardIssuing(api, reservedJitProduct = "vereda_jit_card")
+            .issueFor(UserToken.of("usr_1"))
+        assertEquals("cp_gpa", draft.productToken.value)
+        server.takeRequest()
+        assertTrue(server.takeRequest().body.readUtf8().contains("cp_gpa"))
+    }
+
+    @Test
+    fun jitIssuingUsesTheDedicatedProduct() = runBlocking {
+        server.enqueue(json("""{"token":"card_jit","last_four":"2222"}""", 201))
+        val draft = MarqetaCardIssuing(api, reservedJitProduct = "vereda_jit_card")
+            .issueOnProduct(UserToken.of("usr_1"), app.vereda.bff.issuing.domain.CardProductToken.of("vereda_jit_card"))
+        assertEquals("vereda_jit_card", draft.productToken.value)
+        assertEquals("/cards", server.takeRequest().path)
+    }
+
+    @Test
     fun failsWhenTheProgramHasNoActiveProduct() {
         server.enqueue(json("""{"data":[{"token":"cp_off","active":false}]}"""))
         assertThrows(NoActiveCardProduct::class.java) {
