@@ -1,6 +1,8 @@
 package app.vereda.bff.debug
 
+import app.vereda.bff.config.MarqetaSettingsLoader
 import app.vereda.trace.TraceEntry
+import java.io.File
 import java.util.ArrayDeque
 
 class TraceBuffer(
@@ -28,8 +30,16 @@ class TraceBuffer(
     }
 
     companion object {
-        fun enabled(env: Map<String, String> = System.getenv()): Boolean {
-            val raw = env["VEREDA_DEBUG_TRACES"]?.trim()?.lowercase()
+        fun enabled(
+            env: Map<String, String> = System.getenv(),
+            files: List<File> = MarqetaSettingsLoader.defaultFiles(),
+        ): Boolean {
+            val fromEnv = env["VEREDA_DEBUG_TRACES"]?.trim()?.takeIf { it.isNotEmpty() }
+            val fromFile = files.filter { it.isFile }.firstNotNullOfOrNull { file ->
+                MarqetaSettingsLoader.parseKeyValues(file.readText())["VEREDA_DEBUG_TRACES"]?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+            }
+            val raw = (fromEnv ?: fromFile)?.lowercase()
             return raw != "false" && raw != "0" && raw != "off"
         }
     }
