@@ -5,3 +5,13 @@ MARQETA_ADMIN_ACCESS_TOKEN=replace-with-admin-access-token
 MARQETA_BASE_URL=https://sandbox-api.marqeta.com/v3
 # Painel de debug. Ausente ou true liga GET /debug/traces. false responde 404.
 VEREDA_DEBUG_TRACES=true
+# gpa (padrão) carrega USD 100. jit emite no card product abaixo e usa o ledger do BFF.
+VEREDA_CARD_FUNDING=gpa
+# URL HTTPS pública do BFF (ngrok ou deploy), sem path. O setup aponta a Marqeta para /jit/gateway e /jit/webhook.
+# VEREDA_PUBLIC_URL=https://replace-with-public-https-url
+# Basic Auth que a Marqeta usa ao chamar o BFF. Senha de 20 a 50 caracteres, com maiúscula, minúscula, número e símbolo.
+VEREDA_JIT_BASIC_USER=replace-with-jit-username
+VEREDA_JIT_BASIC_PASSWORD=replace-with-20-to-50-char-password
+# VEREDA_JIT_CARD_PRODUCT=vereda_jit_card
+# VEREDA_JIT_FUNDING_SOURCE=vereda_jit_gateway
+# VEREDA_JIT_WEBHOOK=vereda_jit_webhook

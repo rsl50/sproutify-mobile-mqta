@@ -62,6 +62,12 @@ fun DebugPanel(viewModel: DebugViewModel = hiltViewModel()) {
             }
         }
         if (state.expanded) {
+            Text(
+                text = "app → bff · bff → marqeta · marqeta → bff",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+            )
             SelectionContainer {
                 Text(
                     text = state.text.ifBlank { "Nenhuma troca ainda." },

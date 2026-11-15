@@ -22,7 +22,7 @@ A senha não existe na Marqeta nesse fluxo (o sign-in do demo web também é um 
 
 O app é server-driven: a única rota que ele conhece é `bootstrap`. Textos, validação e navegação vêm do schema. O ViewModel é event-driven (`UiState` em `StateFlow`, `UiEvent` num único `onEvent`, `UiEffect` num `Channel` para snackbar e navegação).
 
-O domínio de negócio fica no BFF, em cinco bounded contexts. O módulo `contract` é a linguagem do contexto de Experience e, no Android, o domínio pequeno da UI (Screen, Component, Action), separado de Compose e de Retrofit.
+O domínio de negócio fica no BFF, em seis bounded contexts. O módulo `contract` é a linguagem do contexto de Experience e, no Android, o domínio pequeno da UI (Screen, Component, Action), separado de Compose e de Retrofit.
 
 ```mermaid
 flowchart LR
@@ -38,20 +38,24 @@ flowchart LR
     ISS[Card Issuing]
     FUN[Funding / Balance]
     TX[Transactions]
+    JIT[JIT Funding]
     EXP --> ONB
     EXP --> ISS
     EXP --> FUN
     EXP --> TX
+    EXP --> JIT
   end
   MQ[Marqeta Core API]
   H2[(H2 em arquivo)]
   VM -->|JSON| EXP
   ONB --> H2
   ISS --> H2
+  JIT --> H2
   ONB -->|anticorruption| MQ
   ISS -->|anticorruption| MQ
   FUN -->|anticorruption| MQ
   TX -->|anticorruption| MQ
+  MQ -->|gateway e webhook| JIT
 ```
 
 | Contexto | Linguagem | Eventos |
@@ -61,6 +65,7 @@ flowchart LR
 | Funding / Balance | Money, Currency, saldo disponível | AccountFunded |
 | Transactions | CardTransaction, MerchantName | PurchaseSimulated |
 | Spending | SpendLimit, SpendWindow | SpendLimitSet |
+| JIT Funding | ledger, hold, decisão de funding | FundingApproved, FundingDeclined, HoldReleased, TransactionCleared |
 | Experience / SDUI | Screen, Component, Action, Effect | monta as telas a partir dos outros contextos |
 
 Cada contexto tem domínio (entidades, value objects, portas), aplicação (use cases) e infraestrutura. Os DTOs da Marqeta não saem de `infrastructure/marqeta`; os adapters traduzem para o modelo de domínio. O publisher de eventos é em processo, só para o demo.
@@ -131,7 +136,32 @@ No build debug do app há uma aba **Debug** embaixo da tela. Ela mostra as troca
 
 O buffer do BFF fica só em memória, as últimas 100 trocas de cada sessão, e não vai para log nem disco. `Authorization`, o token de sessão, senha, PAN, CVV, validade e os tokens de aplicação saem mascarados. `user_token` e `card_token` aparecem.
 
-Ligado por padrão. Para desligar o endpoint (404), use `VEREDA_DEBUG_TRACES=false` no ambiente ou em `bff/local.properties`. O APK release não mostra o painel.
+Ligado por padrão. Para desligar o endpoint (404), use `VEREDA_DEBUG_TRACES=false` no ambiente ou em `bff/local.properties`. O APK release não mostra o painel. No modo JIT o mesmo painel mostra também `marqeta → bff`: o pedido do gateway, a resposta 200 ou 402, a duração e o webhook. O `X-Request-Id` continua ligando app e BFF; o token JIT (ou `x-marqeta-request-trace-id`) liga o pedido da Marqeta ao webhook.
+
+## JIT Gateway
+
+O modo `jit` no cadastro emite o cartão num card product separado, com `jit_funding.programgateway_funding_source` e `refunds_destination` `GATEWAY`. Esse cartão não recebe o GPA order de USD 100. O saldo da home sai do ledger do BFF (também aberto em USD 100, só na base local). O modo `gpa` continua no primeiro card product ativo que não seja o produto JIT.
+
+A Marqeta chama o BFF, não o contrário:
+
+1. `POST /jit/gateway` é o pedido síncrono. O BFF responde 200, ecoando `jit_funding` (`token`, `method`, `user_token`, `amount` com duas casas), ou 402 com `decline_reason`: `INSUFFICIENT_FUNDS`, `CARD_NOT_ACTIVE` ou `AMOUNT_LIMIT_EXCEEDED`. Um balance inquiry devolve `balances` e não mexe no ledger. A resposta fica no processo local, bem abaixo do limite de 3 segundos. Recusa não altera o ledger.
+2. Autorização aprovada abre um hold (`jit_funding.token`; incremental guarda `original_jit_funding_token`). O valor usado é `gpa_order.jit_funding.amount`.
+3. `POST /jit/webhook` avisa o desfecho. Clearing baixa o hold e o ledger pelo `impacted_amount`. Reversal e timeout (`gateway_log.timed_out`) liberam o hold. Refund credita. A mesma chave `token` + `method` não aplica o efeito duas vezes, inclusive no retry do webhook.
+
+Os dois endpoints exigem Basic Auth (`VEREDA_JIT_BASIC_USER` e `VEREDA_JIT_BASIC_PASSWORD`). A senha segue a regra da Marqeta: 20 a 50 caracteres, com maiúscula, minúscula, número e símbolo. A comparação é em tempo constante. Sem essa config o endpoint não existe (404).
+
+O sandbox precisa de uma URL HTTPS pública. Suba o BFF, abra um túnel (por exemplo `ngrok http 8080`) e grave a origem em `VEREDA_PUBLIC_URL`.
+
+```bash
+export VEREDA_PUBLIC_URL=https://seu-tunel.example
+export VEREDA_JIT_BASIC_USER=...
+export VEREDA_JIT_BASIC_PASSWORD=...
+./gradlew :bff:jitSandboxSetup
+```
+
+O comando cria ou atualiza `/fundingsources/programgateway`, o card product JIT e o webhook. Sem chaves, senha ou URL ele só avisa e termina com código 0. Não roda no CI. O relatório mostra as URLs e os tokens de recurso, nunca a senha nem as chaves de admin.
+
+Com o BFF no ar atrás dessa URL, `./gradlew :bff:sandboxSmokeTest` também tenta o fluxo JIT: cadastro `jit`, simulação de compra e o estado devolvido pela Marqeta. Sem `VEREDA_PUBLIC_URL` essa parte é ignorada. O fluxo GPA do smoke continua no card product que não é o JIT.
 
 ## Sandbox e chaves
 
