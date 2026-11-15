@@ -1,5 +1,7 @@
 package app.vereda.bff.experience.application
 
+import app.vereda.bff.debug.TraceBuffer
+import app.vereda.bff.debug.TraceScope
 import app.vereda.bff.funding.application.FundOpeningBalance
 import app.vereda.bff.funding.domain.AccountFunding
 import app.vereda.bff.infrastructure.marqeta.MarqetaCallFailed
@@ -79,6 +81,7 @@ class SubmitSignup(
     private val fundOpeningBalance: FundOpeningBalance,
     private val sessions: SessionRepository,
     private val catalog: ScreenCatalog,
+    private val traces: TraceBuffer? = null,
 ) {
     suspend fun execute(fields: Map<String, String>): ActionResponse {
         val screen = catalog.signup()
@@ -98,6 +101,7 @@ class SubmitSignup(
             val card = issueCard.execute(cardholder)
             val balance = fundOpeningBalance.execute(cardholder.userToken)
             val session = sessions.open(cardholder.id)
+            kotlin.coroutines.coroutineContext[TraceScope]?.let { traces?.adopt(it.requestId, session.value) }
             ActionResponse(
                 effects = listOf(
                     ClientEffect(type = "setSession", token = session.value),

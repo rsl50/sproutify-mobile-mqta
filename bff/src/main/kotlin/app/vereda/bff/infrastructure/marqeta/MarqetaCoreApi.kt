@@ -1,6 +1,9 @@
 package app.vereda.bff.infrastructure.marqeta
 
 import app.vereda.bff.config.MarqetaSettings
+import app.vereda.bff.debug.MarqetaTracingInterceptor
+import app.vereda.bff.debug.TraceBuffer
+import app.vereda.bff.debug.TraceScope
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
@@ -204,6 +207,7 @@ class MarqetaCoreApi internal constructor(
             settings: MarqetaSettings,
             requestTimeoutMs: Long = 15_000,
             connectTimeoutMs: Long = 5_000,
+            traces: TraceBuffer? = null,
         ): MarqetaCoreApi {
             val http = HttpClient(OkHttp) {
                 expectSuccess = false
@@ -214,10 +218,24 @@ class MarqetaCoreApi internal constructor(
                     requestTimeoutMillis = requestTimeoutMs
                     connectTimeoutMillis = connectTimeoutMs
                 }
+                if (traces != null) {
+                    install(attachTraceHeaders)
+                    engine {
+                        addInterceptor(MarqetaTracingInterceptor(traces))
+                    }
+                }
                 defaultRequestAuth(settings)
             }
             return MarqetaCoreApi(http, settings)
         }
+    }
+}
+
+private val attachTraceHeaders = io.ktor.client.plugins.api.createClientPlugin("AttachTraceHeaders") {
+    onRequest { request, _ ->
+        val scope = kotlinx.coroutines.currentCoroutineContext()[TraceScope] ?: return@onRequest
+        request.headers.append("X-Request-Id", scope.requestId)
+        scope.sessionKey?.let { request.headers.append(MarqetaTracingInterceptor.SESSION_HEADER, it) }
     }
 }
 
