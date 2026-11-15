@@ -5,6 +5,9 @@ import app.vereda.bff.config.MarqetaSettingsLoader
 import app.vereda.bff.infrastructure.marqeta.MarqetaCallFailed
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
 import app.vereda.bff.infrastructure.marqeta.screenMessage
+import app.vereda.bff.jit.setup.JitSmokeFailed
+import app.vereda.bff.jit.setup.loadJitRuntime
+import app.vereda.bff.jit.setup.runJitSmoke
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
@@ -27,6 +30,9 @@ fun runSandboxSmoke(
     return try {
         execute(settings)
         0
+    } catch (error: JitSmokeFailed) {
+        println(error.message)
+        1
     } catch (error: MarqetaCallFailed) {
         println("sandboxSmokeTest falhou: ${error.screenMessage()}")
         1
@@ -37,12 +43,18 @@ fun runSandboxSmoke(
 }
 
 private fun executeAgainstSandbox(settings: MarqetaSettings) {
+    executeGpa(settings)
+    runJitSmoke(settings)
+}
+
+private fun executeGpa(settings: MarqetaSettings) {
     val api = MarqetaCoreApi.create(settings)
     try {
         runBlocking {
             val email = "vereda-smoke-${System.currentTimeMillis()}@example.com"
             val user = api.createUser("Smoke", "Vereda", email)
-            val product = api.listCardProducts().firstOrNull { it.active }
+            val jitProduct = loadJitRuntime().cardProductToken
+            val product = api.listCardProducts().firstOrNull { it.active && it.token != jitProduct }
                 ?: error("nenhum card product ativo")
             val card = api.createCard(user.token, product.token)
             api.fundAccount(user.token, "100.00", "USD", "sandbox_program_funding")
