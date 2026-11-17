@@ -1,6 +1,8 @@
 package app.vereda.bff
 
 import app.vereda.bff.config.MarqetaSettingsLoader
+import app.vereda.bff.debug.TraceBuffer
+import app.vereda.bff.debug.TraceScope
 import app.vereda.bff.experience.application.SessionRequired
 import app.vereda.bff.experience.application.UnknownScreen
 import app.vereda.bff.infrastructure.marqeta.MarqetaCoreApi
@@ -12,6 +14,8 @@ import app.vereda.sdui.ScreenJson
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCallPipeline
+import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -21,18 +25,22 @@ import io.ktor.server.request.header
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
+import io.ktor.server.routing.intercept
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
+import java.util.UUID
 
 fun main() {
     val settings = MarqetaSettingsLoader.load()
-    val api = MarqetaCoreApi.create(settings)
+    val traces = if (TraceBuffer.enabled()) TraceBuffer() else null
+    val api = MarqetaCoreApi.create(settings, traces = traces)
     LoggerFactory.getLogger("vereda").info("Marqeta base URL configured: {}", settings.baseUrl)
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
-        module(BffGraph.create(api))
+        module(BffGraph.create(api, traces = traces))
     }.start(wait = true)
 }
 
@@ -61,6 +69,16 @@ fun Application.module(graph: BffGraph) {
         }
     }
     routing {
+        if (graph.traces != null) {
+            intercept(ApplicationCallPipeline.Call) {
+                val requestId = call.request.header("X-Request-Id")?.takeIf { it.isNotBlank() }
+                    ?: UUID.randomUUID().toString()
+                val session = call.request.header("X-Session-Token")?.takeIf { it.isNotBlank() }
+                withContext(TraceScope(requestId, session)) {
+                    proceed()
+                }
+            }
+        }
         get("/health") {
             call.respond(HealthResponse(status = "ok", service = serviceName()))
         }
@@ -71,6 +89,14 @@ fun Application.module(graph: BffGraph) {
                     sessionToken = call.request.header("X-Session-Token"),
                 ),
             )
+        }
+        graph.traces?.let { traces ->
+            get("/debug/traces") {
+                val session = call.request.header("X-Session-Token")?.takeIf { it.isNotBlank() }
+                    ?: return@get call.respond(HttpStatusCode.Unauthorized, ErrorBody("Sessão necessária."))
+                val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
+                call.respond(app.vereda.trace.TracePage(traces.since(session, since)))
+            }
         }
         post("/actions/signup") {
             val body = call.receive<ActionRequest>()

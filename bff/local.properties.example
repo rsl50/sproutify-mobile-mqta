@@ -3,3 +3,5 @@
 MARQETA_APPLICATION_TOKEN=replace-with-application-token
 MARQETA_ADMIN_ACCESS_TOKEN=replace-with-admin-access-token
 MARQETA_BASE_URL=https://sandbox-api.marqeta.com/v3
+# Painel de debug. Ausente ou true liga GET /debug/traces. false responde 404.
+VEREDA_DEBUG_TRACES=true

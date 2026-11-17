@@ -1,5 +1,6 @@
 package app.vereda.bff
 
+import app.vereda.bff.debug.TraceBuffer
 import app.vereda.bff.experience.application.ScreenCatalog
 import app.vereda.bff.experience.application.ScreenQueries
 import app.vereda.bff.experience.application.SubmitSignIn
@@ -41,12 +42,14 @@ class BffGraph(
     val simulatePurchase: SubmitSimulatePurchase,
     val cardState: SubmitCardState? = null,
     val spendLimit: SubmitSpendLimit? = null,
+    val traces: TraceBuffer? = null,
 ) {
     companion object {
         fun create(
             api: MarqetaCoreApi,
             events: DomainEventPublisher = LoggingEventPublisher(),
             database: VeredaDatabase = VeredaDatabase.open(),
+            traces: TraceBuffer? = null,
         ): BffGraph {
             val cardholders = JdbcCardholderRepository(database)
             val sessions = JdbcSessionRepository(database)
@@ -81,6 +84,7 @@ class BffGraph(
                     fundOpeningBalance = FundOpeningBalance(funding, events),
                     sessions = sessions,
                     catalog = catalog,
+                    traces = traces,
                 ),
                 signIn = SubmitSignIn(SignIn(cardholders, sessions), catalog),
                 signOut = SubmitSignOut(SignOut(sessions)),
@@ -98,6 +102,7 @@ class BffGraph(
                     cards = cards,
                     changeCardState = ChangeCardState(cards, MarqetaCardState(api), events),
                 ),
+                traces = traces,
                 spendLimit = SubmitSpendLimit(
                     sessions = sessions,
                     cardholders = cardholders,

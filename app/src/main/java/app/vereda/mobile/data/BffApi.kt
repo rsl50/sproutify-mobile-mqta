@@ -3,10 +3,12 @@ package app.vereda.mobile.data
 import app.vereda.sdui.ActionRequest
 import app.vereda.sdui.ActionResponse
 import app.vereda.sdui.Screen
+import app.vereda.trace.TracePage
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 import retrofit2.http.Url
 
 interface BffApi {
@@ -15,4 +17,7 @@ interface BffApi {
 
     @POST
     suspend fun action(@Url endpoint: String, @Body body: ActionRequest): ActionResponse
+
+    @GET("debug/traces")
+    suspend fun traces(@Query("since") since: Long): TracePage
 }

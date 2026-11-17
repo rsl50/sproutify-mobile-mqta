@@ -125,6 +125,14 @@ Efeito desconhecido é ignorado. O app manda a sessão em `X-Session-Token`. `GE
 
 O cartão na UI é um composable próprio, proporção ISO ID-1 (~1,586:1). O [UX Toolkit](https://www.marqeta.com/docs/developer-guides/uq-uxt-overview) da Marqeta não entra: ele pede programa de cliente, não funciona no public sandbox e não tem SDK Compose.
 
+## Painel de debug
+
+No build debug do app há uma aba **Debug** embaixo da tela. Ela mostra as trocas `app → bff` (gravadas no aparelho) e `bff → marqeta` (lidas de `GET /debug/traces`). O app manda `X-Request-Id` em cada chamada e o BFF repete esse id nas chamadas à Marqeta, então as linhas da mesma ação ficam juntas. Dá para limpar e copiar o texto.
+
+O buffer do BFF fica só em memória, as últimas 100 trocas de cada sessão, e não vai para log nem disco. `Authorization`, o token de sessão, senha, PAN, CVV, validade e os tokens de aplicação saem mascarados. `user_token` e `card_token` aparecem.
+
+Ligado por padrão. Para desligar o endpoint (404), use `VEREDA_DEBUG_TRACES=false` no ambiente ou em `bff/local.properties`. O APK release não mostra o painel.
+
 ## Sandbox e chaves
 
 1. Crie a conta pelo botão Public Sandbox, como no [quick start da Core API](https://www.marqeta.com/docs/developer-guides/core-api-quick-start). O formulário fica em [auth.marqeta.com/create-account](https://auth.marqeta.com/create-account). Depois de entrar, use Create sandbox e espere o e-mail de pronto.

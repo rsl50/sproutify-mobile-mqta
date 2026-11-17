@@ -2,6 +2,8 @@ package app.vereda.mobile.ui.screen
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.vereda.mobile.debug.DebugTraceSync
+import app.vereda.mobile.debug.NoOpDebugTraceSync
 import app.vereda.mobile.domain.LoadResult
 import app.vereda.mobile.domain.ScreenRepository
 import app.vereda.sdui.ActionResponse
@@ -21,6 +23,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ScreenViewModel @Inject constructor(
     private val repository: ScreenRepository,
+    private val debugSync: DebugTraceSync = NoOpDebugTraceSync,
 ) : ViewModel() {
     private val _state = MutableStateFlow<ScreenUiState>(ScreenUiState.Loading)
     val state: StateFlow<ScreenUiState> = _state.asStateFlow()
@@ -86,6 +89,8 @@ class ScreenViewModel @Inject constructor(
             } catch (error: Exception) {
                 _state.value = content.copy(submitting = false)
                 _effects.send(ScreenUiEffect.Snackbar(error.message.orEmpty()))
+            } finally {
+                debugSync.sync()
             }
         }
     }
@@ -108,6 +113,8 @@ class ScreenViewModel @Inject constructor(
                 } else {
                     _state.value = ScreenUiState.Failed(error.message.orEmpty())
                 }
+            } finally {
+                debugSync.sync()
             }
         }
     }
@@ -123,6 +130,8 @@ class ScreenViewModel @Inject constructor(
                 }
             } catch (error: Exception) {
                 _state.value = ScreenUiState.Failed(error.message.orEmpty())
+            } finally {
+                debugSync.sync()
             }
         }
     }
@@ -150,6 +159,7 @@ class ScreenViewModel @Inject constructor(
         ) {
             _state.value = fallback.copy(submitting = false)
         }
+        debugSync.sync()
     }
 
     private fun show(screen: Screen) {
