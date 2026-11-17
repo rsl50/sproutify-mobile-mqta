@@ -14,6 +14,8 @@ import io.ktor.client.request.basicAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
+import io.ktor.client.request.request
+import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
@@ -171,6 +173,17 @@ class MarqetaCoreApi internal constructor(
         RemoteBalance(amount = gpa.availableBalance, currencyCode = gpa.currencyCode)
     }
 
+    suspend fun exchange(verb: String, path: String, body: String? = null): RemoteExchange = io {
+        val response = http.request(endpoint(path)) {
+            this.method = io.ktor.http.HttpMethod.parse(verb)
+            if (body != null) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        }
+        RemoteExchange(response.status.value, response.bodyAsText())
+    }
+
     override fun close() {
         http.close()
     }
@@ -254,6 +267,10 @@ fun MarqetaCallFailed.screenMessage(): String = when (statusCode) {
     408 -> "A Marqeta não respondeu a tempo."
     in 500..599 -> "A Marqeta está indisponível."
     else -> "Não foi possível falar com a Marqeta."
+}
+
+class RemoteExchange(val status: Int, val body: String) {
+    override fun toString(): String = "RemoteExchange(status=$status)"
 }
 
 data class RemoteUser(val token: String, val email: String)

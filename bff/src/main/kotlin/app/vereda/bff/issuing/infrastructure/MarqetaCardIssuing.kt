@@ -11,14 +11,23 @@ import app.vereda.bff.onboarding.domain.UserToken
 
 class MarqetaCardIssuing(
     private val api: MarqetaCoreApi,
+    private val reservedJitProduct: String? = null,
 ) : CardIssuing {
     override suspend fun issueFor(userToken: UserToken): IssuedCardDraft {
-        val product = api.listCardProducts().firstOrNull { it.active } ?: throw NoActiveCardProduct()
-        val remote = api.createCard(userToken.value, product.token)
+        val product = api.listCardProducts().firstOrNull { it.active && it.token != reservedJitProduct }
+            ?: throw NoActiveCardProduct()
+        return issue(userToken, product.token)
+    }
+
+    override suspend fun issueOnProduct(userToken: UserToken, productToken: CardProductToken): IssuedCardDraft =
+        issue(userToken, productToken.value)
+
+    private suspend fun issue(userToken: UserToken, productToken: String): IssuedCardDraft {
+        val remote = api.createCard(userToken.value, productToken)
         return IssuedCardDraft(
             token = CardToken.of(remote.token),
             last4 = CardLast4.of(remote.lastFour),
-            productToken = CardProductToken.of(product.token),
+            productToken = CardProductToken.of(productToken),
         )
     }
 }

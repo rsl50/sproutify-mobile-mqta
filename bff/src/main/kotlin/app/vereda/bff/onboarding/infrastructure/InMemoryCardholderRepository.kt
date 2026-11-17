@@ -4,6 +4,7 @@ import app.vereda.bff.onboarding.domain.Cardholder
 import app.vereda.bff.onboarding.domain.CardholderId
 import app.vereda.bff.onboarding.domain.CardholderRepository
 import app.vereda.bff.onboarding.domain.Email
+import app.vereda.bff.onboarding.domain.UserToken
 import java.util.concurrent.ConcurrentHashMap
 
 class InMemoryCardholderRepository : CardholderRepository {
@@ -13,6 +14,9 @@ class InMemoryCardholderRepository : CardholderRepository {
     override fun findByEmail(email: Email): Cardholder? = byEmail[email.value]?.let(byId::get)
 
     override fun findById(id: CardholderId): Cardholder? = byId[id.value]
+
+    override fun findByUserToken(token: UserToken): Cardholder? =
+        byId.values.firstOrNull { it.userToken == token }
 
     override fun save(cardholder: Cardholder) {
         byId[cardholder.id.value] = cardholder

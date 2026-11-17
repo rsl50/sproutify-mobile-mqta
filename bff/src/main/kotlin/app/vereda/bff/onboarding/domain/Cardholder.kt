@@ -106,6 +106,7 @@ class CardholderAlreadyExists(val email: Email) : RuntimeException()
 interface CardholderRepository {
     fun findByEmail(email: Email): Cardholder?
     fun findById(id: CardholderId): Cardholder?
+    fun findByUserToken(token: UserToken): Cardholder?
     fun save(cardholder: Cardholder)
 }
 

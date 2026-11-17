@@ -14,7 +14,9 @@ import app.vereda.sdui.SpacerComponent
 import app.vereda.sdui.TextComponent
 import app.vereda.sdui.TextFieldComponent
 
-class ScreenCatalog {
+class ScreenCatalog(
+    private val defaultFunding: String = "gpa",
+) {
     fun signup(): Screen = Screen(
         id = "signup",
         title = "Criar conta",
@@ -52,6 +54,16 @@ class ScreenCatalog {
                     FieldRule("required", "Informe a senha"),
                     FieldRule("minLength", "Mínimo de 8 caracteres", min = 8),
                 ),
+            ),
+            TextFieldComponent(
+                id = "funding",
+                label = "Modo de saldo (gpa ou jit)",
+                value = defaultFunding,
+            ),
+            TextComponent(
+                id = "funding-hint",
+                value = "gpa carrega USD 100 na Marqeta. jit usa o ledger deste serviço e um cartão separado.",
+                style = "caption",
             ),
             ButtonComponent(
                 id = "submit",
@@ -114,6 +126,7 @@ class ScreenCatalog {
         card: IssuedCard,
         balance: Money,
         limitLine: String? = null,
+        ledgerLine: String? = null,
     ): Screen = Screen(
         id = "home",
         title = "Início",
@@ -130,6 +143,11 @@ class ScreenCatalog {
                 balanceLabel = "Saldo disponível",
                 balanceText = balance.format(),
             ),
+            if (ledgerLine != null) {
+                TextComponent(id = "ledger", value = ledgerLine, style = "caption")
+            } else {
+                SpacerComponent(id = "ledger-gap", size = "small")
+            },
             if (limitLine != null) {
                 TextComponent(id = "spend-limit", value = limitLine, style = "caption")
             } else {

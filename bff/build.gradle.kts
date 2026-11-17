@@ -10,6 +10,14 @@ application {
     mainClass.set("app.vereda.bff.ApplicationKt")
 }
 
+tasks.register<JavaExec>("jitSandboxSetup") {
+    group = "verification"
+    description = "Cria ou atualiza a funding source, o card product JIT e o webhook. Sem chaves ou URL, só avisa. Não entra no CI."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("app.vereda.bff.jit.setup.JitSandboxSetupKt")
+    workingDir = rootProject.projectDir
+}
+
 tasks.register<JavaExec>("sandboxSmokeTest") {
     group = "verification"
     description = "Fluxo completo no Public Sandbox se as chaves existirem. Sem chaves, só avisa. Não entra no CI."

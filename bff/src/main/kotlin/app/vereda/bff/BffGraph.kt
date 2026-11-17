@@ -29,6 +29,13 @@ import app.vereda.bff.spending.infrastructure.JdbcSpendLimitRepository
 import app.vereda.bff.spending.infrastructure.MarqetaSpendControl
 import app.vereda.bff.experience.application.SubmitSimulatePurchase
 import app.vereda.bff.issuing.application.ChangeCardState
+import app.vereda.bff.issuing.domain.CardFundingMode
+import app.vereda.bff.jit.application.ApplyFundingNotification
+import app.vereda.bff.jit.application.DecideFunding
+import app.vereda.bff.jit.infrastructure.JdbcFundingStore
+import app.vereda.bff.jit.infrastructure.JdbcJitSessions
+import app.vereda.bff.jit.infrastructure.JitCredentials
+import app.vereda.bff.jit.infrastructure.JitGateway
 import app.vereda.bff.issuing.infrastructure.MarqetaCardState
 import app.vereda.bff.shared.DomainEvent
 import app.vereda.bff.shared.DomainEventPublisher
@@ -43,6 +50,7 @@ class BffGraph(
     val cardState: SubmitCardState? = null,
     val spendLimit: SubmitSpendLimit? = null,
     val traces: TraceBuffer? = null,
+    val jit: JitGateway? = null,
 ) {
     companion object {
         fun create(
@@ -50,21 +58,25 @@ class BffGraph(
             events: DomainEventPublisher = LoggingEventPublisher(),
             database: VeredaDatabase = VeredaDatabase.open(),
             traces: TraceBuffer? = null,
+            jitCredentials: JitCredentials? = null,
+            cardFunding: CardFundingMode = CardFundingMode.GPA,
+            jitProductToken: String = "vereda_jit_card",
         ): BffGraph {
             val cardholders = JdbcCardholderRepository(database)
             val sessions = JdbcSessionRepository(database)
             val cards = JdbcIssuedCardRepository(database)
             val spendLimits = JdbcSpendLimitRepository(database)
+            val ledgers = JdbcFundingStore(database)
             val funding = MarqetaAccountFunding(api)
             val cardTransactions = MarqetaCardTransactions(api)
-            val catalog = ScreenCatalog()
+            val catalog = ScreenCatalog(defaultFunding = cardFunding.name.lowercase())
             val register = RegisterCardholder(
                 cardholders = cardholders,
                 enrollment = MarqetaCardholderEnrollment(api),
                 events = events,
             )
             val issueCard = IssueCard(
-                issuing = MarqetaCardIssuing(api),
+                issuing = MarqetaCardIssuing(api, reservedJitProduct = jitProductToken),
                 cards = cards,
                 events = events,
             )
@@ -77,6 +89,7 @@ class BffGraph(
                     funding,
                     ListCardTransactions(cardTransactions),
                     spendLimits,
+                    ledgers,
                 ),
                 signup = SubmitSignup(
                     register = register,
@@ -85,6 +98,9 @@ class BffGraph(
                     sessions = sessions,
                     catalog = catalog,
                     traces = traces,
+                    fundingMode = cardFunding,
+                    jitProductToken = jitProductToken,
+                    ledgers = ledgers,
                 ),
                 signIn = SubmitSignIn(SignIn(cardholders, sessions), catalog),
                 signOut = SubmitSignOut(SignOut(sessions)),
@@ -103,6 +119,15 @@ class BffGraph(
                     changeCardState = ChangeCardState(cards, MarqetaCardState(api), events),
                 ),
                 traces = traces,
+                jit = jitCredentials?.let { credentials ->
+                    JitGateway(
+                        credentials = credentials,
+                        decide = DecideFunding(ledgers, cardholders, cards, spendLimits, events),
+                        notify = ApplyFundingNotification(ledgers, events),
+                        traces = traces,
+                        sessionTokens = JdbcJitSessions(database)::tokensFor,
+                    )
+                },
                 spendLimit = SubmitSpendLimit(
                     sessions = sessions,
                     cardholders = cardholders,

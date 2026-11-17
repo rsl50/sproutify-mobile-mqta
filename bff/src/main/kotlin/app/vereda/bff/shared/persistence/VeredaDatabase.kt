@@ -71,12 +71,16 @@ class VeredaDatabase private constructor(
                           token VARCHAR NOT NULL,
                           last_four CHAR(4) NOT NULL,
                           product_token VARCHAR NOT NULL,
-                          state VARCHAR DEFAULT 'ACTIVE' NOT NULL
+                          state VARCHAR DEFAULT 'ACTIVE' NOT NULL,
+                          funding_mode VARCHAR DEFAULT 'GPA' NOT NULL
                         )
                         """.trimIndent(),
                     )
                     statement.executeUpdate(
                         "ALTER TABLE issued_card ADD COLUMN IF NOT EXISTS state VARCHAR DEFAULT 'ACTIVE' NOT NULL",
+                    )
+                    statement.executeUpdate(
+                        "ALTER TABLE issued_card ADD COLUMN IF NOT EXISTS funding_mode VARCHAR DEFAULT 'GPA' NOT NULL",
                     )
                     statement.executeUpdate(
                         """
@@ -94,6 +98,39 @@ class VeredaDatabase private constructor(
                         CREATE TABLE IF NOT EXISTS app_session (
                           token VARCHAR PRIMARY KEY,
                           cardholder_id VARCHAR NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    statement.executeUpdate(
+                        """
+                        CREATE TABLE IF NOT EXISTS jit_account (
+                          user_token VARCHAR PRIMARY KEY,
+                          ledger_balance VARCHAR NOT NULL,
+                          available_balance VARCHAR NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    statement.executeUpdate(
+                        """
+                        CREATE TABLE IF NOT EXISTS jit_hold (
+                          token VARCHAR PRIMARY KEY,
+                          user_token VARCHAR NOT NULL,
+                          original_token VARCHAR,
+                          amount VARCHAR NOT NULL,
+                          remaining VARCHAR NOT NULL,
+                          state VARCHAR NOT NULL,
+                          created_at BIGINT NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    statement.executeUpdate(
+                        """
+                        CREATE TABLE IF NOT EXISTS jit_seen (
+                          channel VARCHAR NOT NULL,
+                          token VARCHAR NOT NULL,
+                          method VARCHAR NOT NULL,
+                          outcome VARCHAR NOT NULL,
+                          PRIMARY KEY (channel, token, method)
                         )
                         """.trimIndent(),
                     )
