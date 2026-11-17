@@ -4,6 +4,8 @@ App Android nativo (Kotlin + Jetpack Compose) e um BFF em Ktor que reproduzem o 
 
 O código, o nome e a arte são próprios. O demo web não tem arquivo `LICENSE` (só `"license": "MIT"` no `package.json`, e o README diz que é só para demonstração), então nada de código, logo ou imagem foi copiado de lá.
 
+A descrição técnica detalhada (módulos, contratos, ledger JIT, endpoints da Marqeta, testes e segurança) está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+
 ## O que o fluxo faz
 
 1. O app pede `GET /screens/bootstrap`. Sem sessão, o BFF devolve a tela de cadastro.
